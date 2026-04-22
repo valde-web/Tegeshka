@@ -1,6 +1,9 @@
 firebase-key.json
 firebase-key.json.json
 .env
+.env/
+.env.txt
+.env.txt/
 .venv
 venv/
 __pycache__/
