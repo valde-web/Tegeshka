@@ -415,6 +415,7 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
         manager.disconnect(room, websocket)
 
 async def send_push_notification(room, sender_name, text, exclude_id=None):
+    print(f"Отправка на токен: {token[:20]}... для юзера {user_id}")
     try:
         with Session(engine) as s:
             statement = select(User).where(User.fcm_token != None)
