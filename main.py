@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import SQLModel, Field, create_engine, Session, select
 from sqlalchemy import create_engine, Column, Integer, String
-from sqlalchemy.orm import Session
+# from sqlalchemy.orm import Session
 import firebase_admin
 from firebase_admin import credentials, initialize_app, messaging as fb_messaging
 from sqlalchemy.exc import IntegrityError, OperationalError
@@ -406,29 +406,32 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
         manager.disconnect(room, websocket)
 
 async def send_push_notification(room, sender_name, text):
-    with Session(engine) as s:
-        statement = select(User).where(User.fcm_token != None)
-        results = s.exec(statement)
-        users = results.all()
+    try:
+        with Session(engine) as s:
+            statement = select(User).where(User.fcm_token != None)
+            results = s.execute(statement)
+            users = results.scalars().all()
 
-        if not users:
-            return
+            if not users:
+                return
         
-        for user in users:
-            try:
-                message = fb_messaging.Message(
-                    notification=fb_messaging.Notification(
-                        title=f"Tegeshka: {sender_name}",
-                        body=text if text else "Прислал(а) файл",
-                    ),
-                    token=user.fcm_token,
-                    webpush=fb_messaging.WebpushConfig(
-                        fcm_options=fb_messaging.WebpushFCMOptions(
-                            link=f"https://tegeshka.onrender.com/?room={room}"
+            for user in users:
+                try:
+                    message = fb_messaging.Message(
+                        notification=fb_messaging.Notification(
+                            title=f"Tegeshka: {sender_name}",
+                            body=text if text else "Прислал(а) файл",
+                        ),
+                        token=user.fcm_token,
+                        webpush=fb_messaging.WebpushConfig(
+                            fcm_options=fb_messaging.WebpushFCMOptions(
+                                link=f"https://tegeshka.onrender.com/?room={room}"
+                            )
                         )
                     )
-                )
-                fb_messaging.send(message)
-                print(f"Пуш отправлен пользователю {user.id}")
-            except Exception as e:
-                print(f"Ошибка отправки пуша пользователю {user.id}: {e}")
+                    fb_messaging.send(message)
+                    print(f"Пуш отправлен пользователю {user.id}")
+                except Exception as e:
+                    print(f"Ошибка отправки пуша пользователю {user.id}: {e}")
+    except Exception as e:
+        print(f"Критическая ошибка в функции пуша: {e}")
