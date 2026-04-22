@@ -27,7 +27,7 @@ if not hasattr(bcrypt, "__about__"):
 # CONFIG
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-me")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 × 24 × 30
 UPLOAD_DIR = "uploads"
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
@@ -419,48 +419,47 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
 async def send_push_notification(room, sender_name, text, exclude_id=None):
     try:
         with Session(engine) as s:
-            base_statement = select(User).where(User.fcm_token != None)
+            statement = select(User).where(User.fcm_token != None)
             if exclude_id is not None:
-                statement = base_statement.where(User.id != exclude_id)
-            else:
-                statement = base_statement
-
+                statement = statement.where(User.id != exclude_id)
+            
             results = s.execute(statement)
             users = results.scalars().all()
 
             if not users:
                 return
             
-            query_params = urllib.parse.urlencode({'room': room})
-            link_url = f"https://tegeshka.onrender.com/?{query_params}"
+            
 
             for user in users:
                 try:
                     message = fb_messaging.Message(
                         notification=fb_messaging.Notification(
-                            title=f"Чат ({room}): {sender_name}",
+                            title=f"{sender_name}",
                             body=text if text else "Прислал(а) файл",
                         ),
                         token=user.fcm_token,
                         webpush=fb_messaging.WebpushConfig(
                             fcm_options=fb_messaging.WebpushFCMOptions(
-                                link=link_url
+                                link=f"https://tegeshka.onrender.com/?room={room}"
                             )
                         )
                     )
                     fb_messaging.send(message)
                     print(f"Пуш отправлен пользователю {user.id}")
-                except firebase_admin.messaging.ApiCallError as e: # Ловим конкретную ошибку Firebase
-                    if e.code == 'not-registered':
-                        print(f"Токен пользователя {user.id} недействителен. Удаляем.")
-                        user.fcm_token = None # Обнуляем токен
-                        s.add(user) # Отмечаем как измененный
-                        s.commit() # Сохраняем изменения
-                    else:
-                        # Если другая ошибка Firebase, просто выводим
-                        print(f"Ошибка Firebase при отправке пользователю {user.id}: {e}")
                 except Exception as e:
-                    # Ловим другие возможные ошибки
-                    print(f"Другая ошибка при отправке пользователю {user.id}: {e}")
+                    # Универсальная проверка текста ошибки
+                    err_text = str(e).lower()
+                    if "not-registered" in err_text or "unregistered" in err_text or "invalid-argument" in err_text:
+                        print(f"Токен пользователя {user.id} недействителен. Удаляем из базы.")
+                        user.fcm_token = None
+                        s.add(user)
+                        s.commit()
+                    else:
+                        print(f"Ошибка отправки пуша пользователю {user.id}: {e}")
+                        
+        print(f"Пуш-рассылка для комнаты {room} завершена")
+        
     except Exception as e:
+        # Здесь ловим ошибки самой базы или логики
         print(f"Критическая ошибка в функции пуша: {e}")
