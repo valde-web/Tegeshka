@@ -394,6 +394,7 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
 
             try:
                 await send_push_notification(room, display_name, text)
+                await send_push_notification(room, display_name, text, exclude_id=userid)
                 print(f"Пуш-уведомление отправлено для комнаты {room}")
             except Exception as push_e:
                 print(f"Ошибка при отправке пуша: {push_e}")
@@ -405,10 +406,11 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
     finally:
         manager.disconnect(room, websocket)
 
-async def send_push_notification(room, sender_name, text):
+async def send_push_notification(room, sender_name, text, exclude_id=None):
     try:
         with Session(engine) as s:
-            statement = select(User).where(User.fcm_token != None)
+            User.id != exclude_id
+            statement = select(User).where(User.fcm_token != None, User.id != exclude_id)
             results = s.execute(statement)
             users = results.scalars().all()
 
