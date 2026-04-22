@@ -221,8 +221,8 @@ def register(
 
     if display_name:
         display_name = display_name.strip()
-        if len(display_name) > 30:
-            raise HTTPException(status_code=400, detail="display_name слишком длинный (макс 30)")
+        if len(display_name) > 50:
+            raise HTTPException(status_code=400, detail="display_name слишком длинный (макс 50)")
 
     user = User(
         username=username,

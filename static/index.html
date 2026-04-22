@@ -7,6 +7,8 @@
     <link rel="manifest" href="/manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
     <title>Тэгэшка</title>
     <style>
         :root {
@@ -294,20 +296,33 @@
 </div>
 
 <script>
-const VAPID_KEY = "BDOBdZu25D4B4-ecqVfJHhCUBb1kJiSAOKHRLuqBnD6es-twABw0-ILG9K9DU31EteGaRcNI8azBfqEAeJ7yM4Q";
+const firebaseConfig = {
+    apiKey: "AIzaSyD9-X7wef2QRfT9Wvw3dbtrLl_n3pgosks",
+    authDomain: "tegeshka-a22b5.firebaseapp.com",
+    projectId: "tegeshka-a22b5",
+    storageBucket: "tegeshka-a22b5.firebasestorage.app",
+    messagingSenderId: "467845350616",
+    appId: "1:467845350616:web:e623bd9e2d679ebad543ad",
+    measurementId: "G-Z66T7D7W4F"
+  };
+if (typeof firebase !== 'undefined') {
+      firebase.initializeApp(firebaseConfig);
+      var messaging = firebase.messaging(); 
+} else {
+      console.error("Ошибка: Библиотеки Firebase не загружены! Проверьте интернет или ссылки.");
+}
+
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging(); 
 async function initPush() {
     try {
+        if (!messaging) return; // Если не инициализировалось, выходим
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') return;
 
-        const fcmToken = await messaging.getToken({ 
+        const token = await messaging.getToken({ 
             vapidKey: 'BDOBdZu25D4B4-ecqVfJHhCUBb1kJiSAOKHRLuqBnD6es-twABw0-ILG9K9DU31EteGaRcNI8azBfqEAeJ7yM4Q' 
         });
-
-        // Получаем токен от Google
-        const token = await messaging.getToken({ vapidKey: VAPID_KEY });
         
         if (token) {
             // Отправляем его на наш сервер
