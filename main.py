@@ -452,7 +452,6 @@ async def send_push_notification(room, sender_name, text, exclude_id=None):
                         headers={"Urgency": "high"},
                     notification=fb_messaging.WebpushNotification(
                     icon="https://tegeshka.onrender.com/static/1.png",
-                    badge="https://tegeshka.onrender.com/static/1.png"
                     ),
                             fcm_options=fb_messaging.WebpushFCMOptions(
                                 link=f"https://tegeshka.onrender.com/?room={room}"
