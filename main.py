@@ -45,12 +45,17 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 firebase_config_str = os.environ.get("FIREBASE_JSON")
 if firebase_config_str:
-    firebase_config = json.loads(firebase_config_str)
-    cred = credentials.Certificate(firebase_config)
-    initialize_app(cred)
-
-cred = credentials.Certificate("firebase-key.json")
-firebase_admin.initialize_app(cred)
+    try:
+        # 2. Превращаем строку в словарь (JSON)
+        firebase_config = json.loads(firebase_config_str)
+        # 3. Инициализируем через словарь, а не через файл
+        cred = credentials.Certificate(firebase_config)
+        initialize_app(cred)
+        print("Firebase успешно инициализирован через Environment Variable")
+    except Exception as e:
+        print(f"Ошибка при чтении FIREBASE_JSON: {e}")
+else:
+    print("ВНИМАНИЕ: Переменная FIREBASE_JSON не найдена. Пуши работать не будут.")
 
 class FCMTokenUpdate(SQLModel):
     fcm_token: str
