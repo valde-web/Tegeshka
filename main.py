@@ -448,7 +448,6 @@ async def send_push_notification(room, sender_name, text, exclude_id=None):
                                 click_action="TOP_STORY_ACTIVITY" # Для системной обработки
                             )
                         ),
-                        token=token,
                         webpush=fb_messaging.WebpushConfig(
                         headers={"Urgency": "high"},
                     notification=fb_messaging.WebpushNotification(
@@ -459,7 +458,7 @@ async def send_push_notification(room, sender_name, text, exclude_id=None):
                                 link=f"https://tegeshka.onrender.com/?room={room}"
                             )
                         ),
-                        token=token,
+                        token=token
                     )
                     fb_messaging.send(message)
                     print(f"Пуш успешно отправлен на токен пользователя {user_id}")
