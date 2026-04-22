@@ -64,25 +64,23 @@ class FCMTokenUpdate(SQLModel):
 
 @app.post("/update-fcm-token")
 async def update_fcm_token(data: FCMTokenUpdate, token: str = Depends(oauth2_scheme)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        uid = int(payload.get("sub"))
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    except (KeyError, ValueError):
-        raise HTTPException(status_code=401, detail="Invalid token payload")
-
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    uid = int(payload.get("sub"))
     with Session(engine) as s:
+        other_users_statement = select(User).where(User.fcm_token == data.fcm_token, User.id != uid)
+        other_users = s.execute(other_users_statement).scalars().all()
+        for other in other_users:
+            other.fcm_token = None
+            s.add(other)
+        
+        # 2. Обновляем токен текущему пользователю
         user = s.get(User, uid)
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
         if user:
             user.fcm_token = data.fcm_token
             s.add(user)
-            s.commit()
-        return {"status": "ok"}
+        
+        s.commit()
+    return {"status": "ok"}
 
 @app.get("/firebase-messaging-sw.js")
 async def get_fcm_sw():
@@ -429,14 +427,19 @@ async def send_push_notification(room, sender_name, text, exclude_id=None):
             if not users:
                 return
 
-            for user in users:
+            unique_tokens = {} 
+            for u in users:
+                if u.fcm_token not in unique_tokens:
+                    unique_tokens[u.fcm_token] = u.id
+
+            for token, user_id in unique_tokens.items():
                 try:
                     message = fb_messaging.Message(
                         notification=fb_messaging.Notification(
                             title=f"{sender_name}",
                             body=text if text else "Прислал(а) файл",
                         ),
-                        token=user.fcm_token,
+                        token=token,
                         webpush=fb_messaging.WebpushConfig(
                             fcm_options=fb_messaging.WebpushFCMOptions(
                                 link=f"https://tegeshka.onrender.com/?room={room}"
@@ -444,20 +447,17 @@ async def send_push_notification(room, sender_name, text, exclude_id=None):
                         )
                     )
                     fb_messaging.send(message)
-                    print(f"Пуш отправлен пользователю {user.id}")
+                    print(f"Пуш успешно отправлен на токен пользователя {user_id}")
+                
                 except Exception as e:
-                    # Универсальная проверка текста ошибки
                     err_text = str(e).lower()
-                    if "not-registered" in err_text or "unregistered" in err_text or "invalid-argument" in err_text:
-                        print(f"Токен пользователя {user.id} недействителен. Удаляем из базы.")
-                        user.fcm_token = None
-                        s.add(user)
-                        s.commit()
-                    else:
-                        print(f"Ошибка отправки пуша пользователю {user.id}: {e}")
-                        
-        print(f"Пуш-рассылка для комнаты {room} завершена")
-        
+                    if "not-registered" in err_text or "unregistered" in err_text:
+                        print(f"Токен пользователя {user_id} протух. Удаляем.")
+                        # Очищаем токен в базе у этого конкретного юзера
+                        user_to_clean = s.get(User, user_id)
+                        if user_to_clean:
+                            user_to_clean.fcm_token = None
+                            s.add(user_to_clean)
+                            s.commit()
     except Exception as e:
-        # Здесь ловим ошибки самой базы или логики
         print(f"Критическая ошибка в функции пуша: {e}")
