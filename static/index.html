@@ -312,8 +312,6 @@ if (typeof firebase !== 'undefined') {
       console.error("Ошибка: Библиотеки Firebase не загружены! Проверьте интернет или ссылки.");
 }
 
-firebase.initializeApp(firebaseConfig);
-const messaging = firebase.messaging(); 
 async function initPush() {
     try {
         if (!messaging) return; // Если не инициализировалось, выходим
@@ -342,10 +340,6 @@ async function initPush() {
     }
 }
 
-// Вызывай initPush() внутри doAuth после успешного входа!
-</script>
-
-<script>
 document.addEventListener('DOMContentLoaded', () => { 
     const authSection = document.getElementById('auth-section'); 
     const chatCard = document.getElementById('chat-card'); 
