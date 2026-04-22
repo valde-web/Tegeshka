@@ -3,6 +3,7 @@ import uuid
 import aiofiles
 import json
 from firebase_admin import credentials, initialize_app
+from firebase_admin import messaging as fb_messaging
 from typing import Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.exc import OperationalError, IntegrityError
@@ -101,6 +102,7 @@ class User(SQLModel, table=True):
     username: str = Field(index=True, unique=True)
     hashed_password: str
     display_name: Optional[str] = Field(default=None)
+    fcm_token: Optional[str] = Field(default=None)
 
 class Message(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -317,7 +319,6 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
     # 1. Подключаемся через менеджер (там внутри accept)
     await manager.connect(room, websocket)
     print(f"--- [WS OPEN] Room: {room} ---")
-    await send_push_notification(room, display_name, text)
 
     try:
         # 2. Проверка токена
@@ -390,6 +391,12 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
             
             print(f"Рассылка сообщения: {out_payload}")
             await manager.broadcast(room, out_payload)
+
+            try:
+                await send_push_notification(room, display_name, text)
+                print(f"Пуш-уведомление отправлено для комнаты {room}")
+            except Exception as push_e:
+                print(f"Ошибка при отправке пуша: {push_e}")
 
     except WebSocketDisconnect:
         print(f"--- [WS DISCONNECT] Room: {room} ---")

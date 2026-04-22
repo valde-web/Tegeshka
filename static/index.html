@@ -295,14 +295,16 @@
 
 <script>
 const VAPID_KEY = "BDOBdZu25D4B4-ecqVfJHhCUBb1kJiSAOKHRLuqBnD6es-twABw0-ILG9K9DU31EteGaRcNI8azBfqEAeJ7yM4Q";
-
+firebase.initializeApp(firebaseConfig);
+const messaging = firebase.messaging(); 
 async function initPush() {
     try {
         const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-            console.log("Разрешение на пуши не получено");
-            return;
-        }
+        if (permission !== 'granted') return;
+
+        const fcmToken = await messaging.getToken({ 
+            vapidKey: 'BDOBdZu25D4B4-ecqVfJHhCUBb1kJiSAOKHRLuqBnD6es-twABw0-ILG9K9DU31EteGaRcNI8azBfqEAeJ7yM4Q' 
+        });
 
         // Получаем токен от Google
         const token = await messaging.getToken({ vapidKey: VAPID_KEY });
