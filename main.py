@@ -13,6 +13,7 @@ from sqlalchemy import create_engine, Column, Integer, String
 # from sqlalchemy.orm import Session
 import firebase_admin
 from firebase_admin import credentials, initialize_app, messaging as fb_messaging
+import urllib.parse
 from sqlalchemy.exc import IntegrityError, OperationalError
 from passlib.context import CryptContext
 from jose import JWTError, jwt
@@ -63,15 +64,25 @@ class FCMTokenUpdate(SQLModel):
 
 @app.post("/update-fcm-token")
 async def update_fcm_token(data: FCMTokenUpdate, token: str = Depends(oauth2_scheme)):
-    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    uid = int(payload.get("sub"))
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        uid = int(payload.get("sub"))
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except (KeyError, ValueError):
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+
     with Session(engine) as s:
         user = s.get(User, uid)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
         if user:
             user.fcm_token = data.fcm_token
             s.add(user)
             s.commit()
-    return {"status": "ok"}
+        return {"status": "ok"}
 
 @app.get("/firebase-messaging-sw.js")
 async def get_fcm_sw():
@@ -408,31 +419,48 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
 async def send_push_notification(room, sender_name, text, exclude_id=None):
     try:
         with Session(engine) as s:
-            User.id != exclude_id
-            statement = select(User).where(User.fcm_token != None, User.id != exclude_id)
+            base_statement = select(User).where(User.fcm_token != None)
+            if exclude_id is not None:
+                statement = base_statement.where(User.id != exclude_id)
+            else:
+                statement = base_statement
+
             results = s.execute(statement)
             users = results.scalars().all()
 
             if not users:
                 return
-        
+            
+            query_params = urllib.parse.urlencode({'room': room})
+            link_url = f"https://tegeshka.onrender.com/?{query_params}"
+
             for user in users:
                 try:
                     message = fb_messaging.Message(
                         notification=fb_messaging.Notification(
-                            title=f"{sender_name}",
+                            title=f"Чат ({room}): {sender_name}",
                             body=text if text else "Прислал(а) файл",
                         ),
                         token=user.fcm_token,
                         webpush=fb_messaging.WebpushConfig(
                             fcm_options=fb_messaging.WebpushFCMOptions(
-                                link=f"https://tegeshka.onrender.com/?room={room}"
+                                link=link_url
                             )
                         )
                     )
                     fb_messaging.send(message)
                     print(f"Пуш отправлен пользователю {user.id}")
+                except firebase_admin.messaging.ApiCallError as e: # Ловим конкретную ошибку Firebase
+                    if e.code == 'not-registered':
+                        print(f"Токен пользователя {user.id} недействителен. Удаляем.")
+                        user.fcm_token = None # Обнуляем токен
+                        s.add(user) # Отмечаем как измененный
+                        s.commit() # Сохраняем изменения
+                    else:
+                        # Если другая ошибка Firebase, просто выводим
+                        print(f"Ошибка Firebase при отправке пользователю {user.id}: {e}")
                 except Exception as e:
-                    print(f"Ошибка отправки пуша пользователю {user.id}: {e}")
+                    # Ловим другие возможные ошибки
+                    print(f"Другая ошибка при отправке пользователю {user.id}: {e}")
     except Exception as e:
         print(f"Критическая ошибка в функции пуша: {e}")
