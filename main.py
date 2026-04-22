@@ -393,7 +393,6 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
             await manager.broadcast(room, out_payload)
 
             try:
-                await send_push_notification(room, display_name, text)
                 await send_push_notification(room, display_name, text, exclude_id=userid)
                 print(f"Пуш-уведомление отправлено для комнаты {room}")
             except Exception as push_e:
@@ -421,7 +420,7 @@ async def send_push_notification(room, sender_name, text, exclude_id=None):
                 try:
                     message = fb_messaging.Message(
                         notification=fb_messaging.Notification(
-                            title=f"Tegeshka: {sender_name}",
+                            title=f"{sender_name}",
                             body=text if text else "Прислал(а) файл",
                         ),
                         token=user.fcm_token,
