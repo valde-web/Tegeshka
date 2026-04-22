@@ -27,7 +27,7 @@ if not hasattr(bcrypt, "__about__"):
 # CONFIG
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-me")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 × 24 × 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 30
 UPLOAD_DIR = "uploads"
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
@@ -428,8 +428,6 @@ async def send_push_notification(room, sender_name, text, exclude_id=None):
 
             if not users:
                 return
-            
-            
 
             for user in users:
                 try:
