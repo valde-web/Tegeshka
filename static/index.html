@@ -1,0 +1,784 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="https://s.fotora.ru/357459495082384f.png" type="image/png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Тэгэшка</title>
+    <style>
+        :root {
+            --bg-color: #131320;
+            --card-bg: #252525;
+            --text-color: #e9e9e9;
+            --accent-color: #2D3E50;
+            --accent-hover: #364b60;
+            --border-radius: 12px;
+            --error-color: #ff5252;
+            --success-color: #3d8c40;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            padding: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+            color: var(--text-color);
+        }
+
+        h3 { margin-top: 0; color: var(--text-color); font-weight: 500; }
+
+        textarea, input {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: var(--border-radius);
+            border: 1px solid #444;
+            background: #1a1a1a;
+            color: var(--text-color);
+            box-sizing: border-box;
+            transition: border 0.3s;
+            font-size: 1.0em;
+            caret-color: var(--text-color);
+        }
+
+        textarea:focus, input:focus { 
+            outline: none; 
+        }
+
+        input:-webkit-autofill {
+        -webkit-box-shadow: 0 0 0px 1000px #1a1a1a inset !important;
+        box-shadow: 0 0 0px 1000px #1a1a1a inset !important;
+        -webkit-text-fill-color: var(--text-color) !important;
+        font-size: 1em;
+        }
+
+        button {
+            font-family:'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+            font-size: 1.1em;
+            padding: 10px 18px;
+            border-radius: var(--border-radius);
+            border: none;
+            background: var(--accent-color);
+            color: var(--text-color);
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+            margin-right: 5px;
+            margin-top: 5px;
+        }
+
+        button:hover { background: var(--accent-hover); }
+        button:disabled { background: #555; cursor: not-allowed; }
+
+        #info {
+            font-size: 1.0em;
+            margin-top: 10px;
+            min-height: 1.2em;
+        }
+
+        /* Chat styles */
+        #messages {
+            display: flex;
+            font-size: 1.0em;
+            flex-direction: column;
+            height: 350px;
+            overflow-y: auto;
+            border: 1px solid #444;
+            border-radius: var(--border-radius);
+            padding: 10px;
+            background: #252525;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .msg {
+            background: #3d3d3d;
+            padding: 8px 12px;
+            border-radius: 15px;
+            max-width: 80%;
+            align-self: flex-start;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .msg b { color: var(--text-color); display: block; font-size: 0.8em; }
+
+.msg-wrapper {
+    display: flex;
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+/* Выравнивание: мои справа, чужие слева */
+.msg-wrapper.my { justify-content: flex-end; }
+.msg-wrapper.other { justify-content: flex-start; }
+
+/* Стиль самого облачка (рамки) */
+.msg-bubble {
+    max-width: 70%;
+    padding: 8px 12px;
+    border-radius: 12px;
+    position: relative;
+    word-wrap: break-word;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+/* Цвета облачков */
+.my .msg-bubble {
+    background: #242424; /* Темно-зеленый (как в WhatsApp) */
+    color: var(--text-color);
+    border-bottom-right-radius: 2px;
+}
+
+.other .msg-bubble {
+    background: #2c1313; /* Темно-серый */
+    color: var(--text-color);
+    border-bottom-left-radius: 2px;
+}
+
+/* Имя отправителя над текстом */
+.msg-name {
+    display: block;
+    font-size: 1em;
+    font-weight: bold;
+    margin-bottom: 4px;
+    color: #9f84ff; /* Матричный зеленый */
+}
+
+        .file-link {
+            display: block;
+            margin-top: 5px;
+            color: #460046;
+            text-decoration: none;
+            font-size: 0.9em;
+        }
+
+        .controls-row { display: flex; gap: 10px; align-items: center; justify-content: flex-end; }
+
+        #send {
+        background: none;
+        margin-top: 3px;
+        padding: 10px 10px !important;
+        border-radius: 100px;
+
+        }
+
+        #send img {
+        position: relative;
+        top: 2px;
+        }
+
+        #attachBtn {
+        background: none;
+        margin-top: 7px;
+        padding: 10px 10px !important;
+        border-radius: 100px;
+        }
+
+        #attachBtn img {
+        position: relative;
+        top: 2px;
+        }
+
+        .row { display:flex; align-items:flex-start; }
+
+        .file-input-wrapper { flex-grow: 1; }
+
+        ::placeholder {
+        color: #a6a6a6;
+        font-size: 1.0em;
+        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* Ползунок (thumb) */
+        ::-webkit-scrollbar-thumb {
+        background-color: #a6a6a6; /* Цвет ползунка */
+        border-radius: 100px;   /* Скругление углов ползунка */
+        cursor: pointer;
+        }
+
+        /* Трек (track) */
+        ::-webkit-scrollbar-track {
+          background-color: #13132000; /* Цвет фона трека */
+          cursor: pointer;
+        }
+
+        /* Улучшение внешнего вида при наведении курсора на ползунок */
+        ::-webkit-scrollbar-thumb:hover {
+          background-color: #8a8a8a; /* Цвет ползунка при наведении */
+        }
+
+        /* Общая ширина полосы прокрутки */
+        ::-webkit-scrollbar {
+          width: 12px; /* Ширина вертикальной полосы прокрутки */
+          height: 12px; /* Высота горизонтальной полосы прокрутки */
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Блок авторизации -->
+    <div class="card" id="auth-section">
+        <h3>Вход / Регистрация</h3>
+        <input id="username" placeholder="Логин">
+        <input id="password" type="password" placeholder="Пароль">
+        <input id="display_name" name="display_name" placeholder="Введите имя, которое будет видно всем" style="display:none; margin-top:8px;">
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+            <button id="regBtn" type="button">Создать аккаунт</button>
+            <button id="loginBtn" type="button" style="background: #555;">Войти</button>
+        </div>
+        <!-- Этот блок оставляем для ошибок/информации авторизации -->
+        <div id="info" style="margin-top: 8px;"></div>
+    </div>
+
+    <!-- Блок чата -->
+    <div class="card" id="chat-card">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+            <h3 style="margin:0;">Чат</h3>
+            <button id="logoutBtn" type="button" style="margin-left: 12px;">Выйти с аккаунта</button>
+        </div>
+
+        <div class="controls-row" style="margin-top:8px;">
+            <input id="room" placeholder="Введите название чата..." style="margin: 0;">
+            <button id="connect" type="button">Войти в чат</button>
+        </div>
+        
+        <div id="messages" style="margin-top:10px; min-height:150px; border: 1px solid #444; padding:8px; overflow:none; background-color: #1a1a1a;"></div>
+
+        <div class="cont" style="width:100%;">
+        <div class="row" style="width:100%;">
+        <textarea id="text" rows="3" placeholder="Напишите сообщение..." style="margin-top:8px; resize:none; align-items:flex-start; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;"></textarea>
+  
+        <div class="controls-row" style="width: 12%; display: flex; margin-left: 10px; padding: 0 0;">
+            <input type="file" id="file" style="display:none">
+            <div class="row2" style="flex-direction: column; gap: 0;">
+            <button id="attachBtn" type="button" aria-label="Прикрепить файл" title="Прикрепить файл">
+            <img src="https://s.fotora.ru/1d29182e85c24e3e.png" width="20" height="20"></button>
+            <!-- Кнопка отправки -->
+            <button id="send" type="button">
+            <img src="https://s.fotora.ru/3a00c1be9ec0baa7.png" width="20" height="20"></button>
+            </div>
+        </div>
+        </div>
+        <!-- Отображение имени выбранного файла (опционально) -->
+            <span id="file-name" style="font-size: 1em; color: #c7c7c7; "></span>
+        </div>
+
+        <!-- Блок ошибок/информации чата (показывается внизу чата) -->
+        <div id="chat-info" aria-live="polite" style="margin-top:8px;"></div>
+    </div>
+</div>
+
+<script>
+const VAPID_KEY = "BDOBdZu25D4B4-ecqVfJHhCUBb1kJiSAOKHRLuqBnD6es-twABw0-ILG9K9DU31EteGaRcNI8azBfqEAeJ7yM4Q";
+
+async function initPush() {
+    try {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            console.log("Разрешение на пуши не получено");
+            return;
+        }
+
+        // Получаем токен от Google
+        const token = await messaging.getToken({ vapidKey: VAPID_KEY });
+        
+        if (token) {
+            // Отправляем его на наш сервер
+            const accessToken = localStorage.getItem('accesstoken');
+            await fetch('/update-fcm-token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + accessToken
+                },
+                body: JSON.stringify({ fcm_token: token })
+            });
+            console.log("Push-уведомления настроены!");
+        }
+    } catch (error) {
+        console.error("Ошибка при настройке пушей:", error);
+    }
+}
+
+// Вызывай initPush() внутри doAuth после успешного входа!
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => { 
+    const authSection = document.getElementById('auth-section'); 
+    const chatCard = document.getElementById('chat-card'); 
+    const authInfo = document.getElementById('info'); 
+    const chatInfo = document.getElementById('chat-info'); 
+    const usernameEl = document.getElementById('username'); 
+    const passwordEl = document.getElementById('password'); 
+    const displayNameEl = document.getElementById('display_name');
+    const regBtn = document.getElementById('regBtn'); 
+    const loginBtn = document.getElementById('loginBtn'); 
+    const logoutBtn = document.getElementById('logoutBtn'); 
+    const roomEl = document.getElementById('room'); 
+    const connectBtn = document.getElementById('connect'); 
+    const messagesEl = document.getElementById('messages'); 
+    const textEl = document.getElementById('text'); 
+    const fileEl = document.getElementById('file'); 
+    const attachBtn = document.getElementById('attachBtn'); 
+    const fileNameEl = document.getElementById('file-name'); 
+    const sendBtn = document.getElementById('send');
+    let ws = null; 
+    let tokenValue = localStorage.getItem('accesstoken'); 
+    // 1. Главная функция переключения интерфейса
+function validateTokenAndUpdateUI() {
+    const token = localStorage.getItem('accesstoken');
+    
+    if (token && token !== 'null' && token !== 'undefined') {
+        // Если токен есть — показываем чат
+        showOnlyChat();
+    } else {
+        // Если токена нет — показываем вход
+        showOnlyAuth();
+    }
+}
+
+// 2. Функция: Показать только ЧАТ
+function showOnlyChat() {
+    const authSection = document.getElementById('auth-section'); // ID твоего блока входа
+    const chatCard = document.getElementById('chat-card'); // ID твоего блока чата
+    
+    if (authSection) authSection.style.display = 'none';
+    if (chatCard) chatCard.style.display = 'block';
+}
+
+// 3. Функция: Показать только ВХОД
+function showOnlyAuth() {
+    const authSection = document.getElementById('auth-section');
+    const chatCard = document.getElementById('chat-card');
+    
+    if (authSection) authSection.style.display = 'block';
+    if (chatCard) chatCard.style.display = 'none';
+}
+
+// 4. ЗАПУСК ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
+// Чтобы если пользователь обновил страницу, его не выкидывало из чата
+window.addEventListener('DOMContentLoaded', () => {
+    validateTokenAndUpdateUI();
+});
+
+if (typeof connectBtn !== 'undefined' && connectBtn) { connectBtn.addEventListener('click', (e) => { e.preventDefault(); connectWS(); }); }
+
+if (typeof sendBtn !== 'undefined' && sendBtn) { sendBtn.addEventListener('click', (e) => { e.preventDefault(); sendMessage(); }); }
+
+if (typeof logoutBtn !== 'undefined' && logoutBtn) { logoutBtn.addEventListener('click', (e) => { e.preventDefault(); if (ws) { try { ws.close(); } catch (ex) { / ignore / } ws = null; } tokenValue = null; localStorage.removeItem('accesstoken'); appendMessage('Выход из чата. Соединение разорвано', 'system'); showOnlyAuth(); if (usernameEl) usernameEl.value = ''; if (passwordEl) passwordEl.value = ''; }); }
+
+function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&')
+        .replace(/</g, '<')
+        .replace(/>/g, '>')
+        .replace(/"/g, '"')
+        .replace(/'/g, "'");
+}
+
+function escapeAttr(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/"/g, '"').replace(/'/g, "'");
+}
+
+function showAuthInfo(msg = '', kind = 'info') { 
+    if (!authInfo) return; authInfo.innerText = msg; 
+    authInfo.style.color = (kind === 'error') ? 'crimson' : ''; 
+} 
+function showChatInfo(msg = '', kind = 'info') { 
+    if (!chatInfo) return; chatInfo.innerText = msg; 
+    chatInfo.style.color = (kind === 'error') ? 'crimson' : (kind === 'success' ? 'green' : ''); 
+} 
+
+showOnlyAuth();
+
+function appendMessage(htmlContent, side = 'other') {
+    const messagesEl = document.getElementById('messages');
+    if (!messagesEl) return;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'msg-wrapper ' + side; 
+
+    // Создаем само облачко сообщения
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    bubble.innerHTML = htmlContent;
+
+    wrapper.appendChild(bubble);
+    messagesEl.appendChild(wrapper);
+    
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+async function doAuth(endpoint, isRegister = false) { 
+    // Убедись, что переменные usernameEl и passwordEl доступны здесь
+    const username = usernameEl ? usernameEl.value.trim() : '';
+    const password = passwordEl ? passwordEl.value : '';
+    const displayName = isRegister && displayNameEl ? displayNameEl.value.trim() : '';
+    const infoEl = document.getElementById('info');
+    
+    if (!username || !password || (isRegister && !displayName)) { 
+        showAuthInfo(isRegister ? 'Введите логин, пароль и отображаемое имя' : 'Введите логин и пароль', 'error');
+        return; 
+    }
+
+        // ИСПОЛЬЗУЕМ FormData, так как сервер ждет Form(...)
+        const fd = new FormData();
+        fd.append('username', username);
+        fd.append('password', password);
+        if (isRegister) fd.append('display_name', displayName);
+
+    try {
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            body: fd
+        });
+
+        let data = null;
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            data = await res.json();
+        } else {
+            // Если не JSON, пытаемся получить как текст
+            data = await res.text();
+            console.warn("Не-JSON ответ от сервера:", data);
+        }
+
+        if (!res.ok) {
+            // Обрабатываем ошибку
+            let errMsg = `HTTP ${res.status}`;
+            if (data && typeof data === 'object' && data.detail) {
+                errMsg = data.detail;
+            } else if (data && typeof data === 'string') {
+                errMsg = data; // Если ответ просто текст
+            } else if (data) {
+                errMsg = JSON.stringify(data); // Пытаемся показать объект
+            } else {
+                 errMsg = `HTTP ${res.status}`;
+            }
+            if (infoEl) infoEl.innerText = '❌ ' + errMsg;
+            return;
+        }
+
+        // Сервер теперь возвращает ключ 'accesstoken' (мы это правили в main.py)
+        const token = data && (data.accesstoken || data.token || data.access_token);
+        const userId = data && (data.userid || data.user_id || data.id);
+        
+        if (!token || !userId) {
+            if (infoEl) infoEl.innerText = 'Сервер не прислал токен или ID';
+            return;
+        }
+
+        // Сохраняем токен под именем 'accesstoken' для синхронизации с другими частями кода
+        localStorage.setItem('accesstoken', token);
+        localStorage.setItem('myId', userId);
+        
+        if (infoEl) infoEl.innerText = '✅ Успешно';
+        if (typeof showOnlyChat === 'function') showOnlyChat(); 
+        if (typeof validateTokenAndUpdateUI === 'function') validateTokenAndUpdateUI();
+        if (typeof showChatInfo === 'function') {
+            showChatInfo('Вход выполнен. Подключитесь к чату.', 'success');
+        }
+        
+        validateTokenAndUpdateUI();
+
+    } catch (err) {
+        console.error('Auth error:', err);
+        if (infoEl) infoEl.innerText = '❌ Ошибка соединения с сервером';
+    }
+    initPush()
+}
+
+// Привязка кнопок (остается как была)
+if (regBtn) regBtn.onclick = (e) => { e.preventDefault();
+if (!displayNameEl) { doAuth('/register', true); return; }
+if (getComputedStyle(displayNameEl).display === 'none' || displayNameEl.value.trim() === '') {
+    displayNameEl.style.display = '';
+    displayNameEl.focus();
+    showAuthInfo('Введите отображаемое имя и нажмите "Создать аккаунт" ещё раз', 'info');
+    return;
+  }
+  doAuth('/register', true);
+};
+if (loginBtn) loginBtn.onclick = (e) => { e.preventDefault(); doAuth('/login'); };
+
+function connectWS() { 
+    // ВСЕГДА берем свежий токен из памяти при подключении
+    tokenValue = localStorage.getItem('accesstoken');
+
+    if (!tokenValue || tokenValue === 'null') {
+    showChatInfo('Нет токена — войдите в систему', 'error');
+    return;
+}
+
+const proto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
+const base = proto + '//' + location.host;
+
+const roomName = (typeof roomEl !== 'undefined' && roomEl) ? (roomEl.value || '1') : '1';
+const wsUrl = base + '/ws/' + encodeURIComponent(roomName) + '?token=' + encodeURIComponent(tokenValue);
+
+if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+    showChatInfo('WebSocket уже подключён', 'info');
+    return;
+}
+
+try {
+    ws = new WebSocket(wsUrl);
+} catch (err) {
+    console.error('WS init error', err);
+    showChatInfo('Не удалось создать WebSocket', 'error');
+    return;
+}
+
+ws.addEventListener('open', () => {
+    appendMessage('--- Вы вошли в чат ---', 'system');
+});
+
+ws.onmessage = (ev) => {
+    // console.log("=== ПОЛУЧЕНО ИЗ WS ===", ev.data);
+    try {
+        const j = JSON.parse(ev.data);
+        
+        // Проверяем, что это сообщение, а не системный мусор
+        if (j.sender_id || j.text || j.file_url) {
+            const myId = localStorage.getItem('myId');
+            const isMe = String(j.sender_id) === String(myId);
+            const side = isMe ? 'my' : 'other';
+            const name = j.display_name || '';
+            const text = j.text || '';
+            
+            // Обработка файлов и картинок
+            let fileHtml = '';
+            if (j.file_url) {
+                const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(j.file_url);
+                if (isImage) {
+                    fileHtml = `<img src="${j.file_url}" style="max-width:100%; border-radius:8px; margin-top:8px; cursor:pointer;" onclick="window.open(this.src)">`;
+                } else {
+                    fileHtml = `<a href="${j.file_url}" target="_blank" style="color:#00afff; text-decoration:none; display:block; margin-top:8px;">📁 ${j.file_url.split('/').pop()}</a>`;
+                }
+            }
+
+            // Формируем внутренность бабла
+            const html = `
+                <span class="msg-name">${name}</span>
+                <div class="msg-text" style="white-space: pre-wrap;">${text}</div>
+                ${fileHtml}
+            `;
+
+            appendMessage(html, side);
+            return; // Важно! Уходим, чтобы не было дублей
+        }
+    } catch (e) {
+    }
+
+    if (!ev.data.startsWith('{')) {
+        const sysMsg = document.createElement('div');
+        sysMsg.style.cssText = "text-align:center; color:#888; font-size: 1.0em; margin:10px 0; width:100%;";
+        sysMsg.textContent = ev.data;
+        document.getElementById('messages').appendChild(sysMsg);
+    }
+};
+
+    ws.addEventListener('close', () => {
+        appendMessage('Соединение разорвано', 'system');
+        showChatInfo('Соединение разорвано', 'error');
+        ws = null;
+    });
+
+    ws.addEventListener('error', (e) => {
+        console.error('WS error', e);
+        showChatInfo('Ошибка WebSocket', 'error');
+    });
+
+// ИСПРАВЛЕННЫЙ ВЫХОД
+if (logoutBtn) { 
+    logoutBtn.addEventListener('click', (e) => { 
+        e.preventDefault();
+        if (ws) { 
+            ws.close(); 
+            ws = null; 
+        } 
+        tokenValue = null; 
+        // Удаляем именно тот ключ, который создали при логине
+        localStorage.removeItem('accesstoken'); 
+        
+        appendMessage('Выход из чата. Соединение разорвано', 'system'); 
+        showOnlyAuth(); 
+        
+        // Очищаем инпуты для безопасности
+        if (usernameEl) usernameEl.value = '';
+        if (passwordEl) passwordEl.value = '';
+    }); 
+}
+}
+
+async function sendMessage() { 
+    const tokenValue = localStorage.getItem('accesstoken');
+    
+    // 1. Проверка соединения
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        showChatInfo('Сначала подключитесь к чату!', 'error');
+        return;
+    }
+
+    // Определяем элементы (убедись, что ID совпадают с твоим HTML)
+    const textEl = document.getElementById('text');
+    const fileEl = document.getElementById('file');
+    const fileNameEl = document.getElementById('file-name');
+    const sendBtn = document.getElementById('send');
+    const roomInput = document.getElementById('room');
+
+    const room = roomInput ? (roomInput.value || '1') : '1';
+    const text = textEl ? textEl.value.trim() : '';
+    let file_url = null;
+
+    function clearFileSelection() {
+        if (fileEl) fileEl.value = '';
+        if (fileNameEl) fileNameEl.textContent = '';
+    }
+
+    // 2. Логика загрузки файла (оставляем как была, она рабочая)
+    if (fileEl && fileEl.files && fileEl.files.length > 0) {
+        const fd = new FormData();
+        fd.append('file', fileEl.files[0]); 
+        fd.append('token', tokenValue);
+    if (!tokenValue) {
+      showChatInfo('Требуется авторизация (отсутствует токен)', 'error');
+      clearFileSelection();
+      return;
+    }
+
+        if (sendBtn) sendBtn.disabled = true;
+        // showChatInfo('Загрузка файла...', 'info');
+
+        try {
+            const res = await fetch('/upload', {
+                method: 'POST',
+                body: fd
+            });
+
+        if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                console.error("Детали ошибки от сервера:", errorData);
+                throw new Error(errorData.detail || 'Ошибка сервера');
+            }
+
+            const parsed = await res.json();
+            file_url = parsed.file_url || parsed.url || null;
+            // console.log('Файл успешно загружен, URL:', file_url);
+
+        } catch (err) {
+            console.error('Ошибка в fetch /upload:', err);
+            showChatInfo('Ошибка при загрузке: ' + err.message, 'error');
+            if (sendBtn) sendBtn.disabled = false;
+            return; // Прекращаем отправку, если файл не загрузился
+        } finally {
+            if (sendBtn) sendBtn.disabled = false;
+        }
+    }
+
+    // 3. Если нет ни текста, ни файла — выходим
+    if (!text && !file_url) return;
+
+    // 4. ОТПРАВКА В WEBSOCKET
+    const payload = { 
+        text: text, 
+        file_url: file_url, 
+        room: room 
+    };
+
+    try {
+        // console.log('OUT WS payload', payload);
+        ws.send(JSON.stringify(payload));
+        if (textEl) textEl.value = ''; // Стираем текст в поле ввода
+        if (fileEl) fileEl.value = '';  // Сбрасываем выбранный файл
+        if (fileNameEl) fileNameEl.textContent = ''; // Стираем имя файла у скрепки
+        
+        // showChatInfo('Сообщение отправлено', 'success');
+
+    } catch (err) {
+        console.error('WS send error:', err);
+        showChatInfo('Не удалось отправить сообщение', 'error');
+        clearFileSelection();
+    }
+}
+
+
+const textInput = document.getElementById('text'); // Поле ввода сообщения
+
+if (textInput) {
+    textInput.onkeydown = (e) => {
+        // Если нажат Enter БЕЗ Shift
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault(); // Запрещаем перенос строки
+            if (sendBtn) {
+                sendBtn.click(); // Нажимаем кнопку "Отправить"
+            }
+        }
+        // Если нажат Shift + Enter — ничего не делаем, будет обычный перенос
+    };
+}
+
+// --- 2. Исправление скрепки и выбора файла ---
+const fileInput = document.getElementById('file');      // Скрытый инпут файла
+const fileNameDisplay = document.getElementById('file-name'); // Текст для имени файла
+
+if (attachBtn && fileInput) {
+    attachBtn.onclick = (e) => {
+        e.preventDefault();
+        fileInput.click(); // Открываем проводник
+    };
+}
+
+if (fileInput) {
+    fileInput.onchange = () => {
+        if (fileInput.files.length > 0) {
+            const name = fileInput.files[0].name;
+            // Показываем имя файла рядом со скрепкой
+            if (fileNameDisplay) {
+                fileNameDisplay.textContent = name;
+            }
+            // Выводим инфо в блок под чатом (у тебя там id="chat-info")
+            const chatInfo = document.getElementById('chat-info');
+            if (chatInfo) {
+                // chatInfo.textContent = 'Выбран файл: ' + name;
+                chatInfo.style.color = '#E0E0E0'; // Матричный зеленый
+            }
+        }
+    };
+}
+validateTokenAndUpdateUI();
+});
+if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+</script>
+</body>
+</html>
