@@ -16,7 +16,31 @@ messaging.onBackgroundMessage(function(payload) {
     const notificationTitle = payload.notification.title;
     const notificationOptions = {
         body: payload.notification.body,
-        icon: '/static/1.png'
+        icon: '/static/1.png',
+        badge: '/static/1.png',
+        data: payload.data
     };
-    // return self.registration.showNotification(notificationTitle, notificationOptions);
+    return self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+self.addEventListener('notificationclick', function(event) {
+    event.notification.close(); // Закрываем уведомление
+
+    const room = event.notification.data.room;
+    const targetUrl = room ? `/?room=${room}` : '/';
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+            // Если вкладка уже открыта, переключаемся на неё
+            for (let client of clientList) {
+                if (client.url.includes(targetUrl) && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            // Если нет — открываем новую
+            if (clients.openWindow) {
+                return clients.openWindow(targetUrl);
+            }
+        })
+    );
 });

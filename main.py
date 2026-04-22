@@ -427,10 +427,7 @@ async def send_push_notification(room, sender_name, text, exclude_id=None):
             if not users:
                 return
 
-            unique_tokens = {} 
-            for u in users:
-                if u.fcm_token not in unique_tokens:
-                    unique_tokens[u.fcm_token] = u.id
+            unique_tokens = {u.fcm_token: u.id for u in users} 
 
             for token, user_id in unique_tokens.items():
                 try:
@@ -438,13 +435,31 @@ async def send_push_notification(room, sender_name, text, exclude_id=None):
                         notification=fb_messaging.Notification(
                             title=f"{sender_name}",
                             body=text if text else "Прислал(а) файл",
+                            image="https://tegeshka.onrender.com/static/1.png"
+                        ),
+                        data={
+                            "room": str(room),
+                            "click_action": f"/?room={room}"
+                        },
+                        # Настройки для Android (чтобы телефон "проснулся")
+                        android=fb_messaging.AndroidConfig(
+                            priority='high',
+                            notification=fb_messaging.AndroidNotification(
+                                click_action="TOP_STORY_ACTIVITY" # Для системной обработки
+                            )
                         ),
                         token=token,
                         webpush=fb_messaging.WebpushConfig(
+                        headers={"Urgency": "high"},
+                    notification=fb_messaging.WebpushNotification(
+                    icon="https://tegeshka.onrender.com/static/1.png",
+                    badge="https://tegeshka.onrender.com/static/1.png"
+                    ),
                             fcm_options=fb_messaging.WebpushFCMOptions(
                                 link=f"https://tegeshka.onrender.com/?room={room}"
                             )
-                        )
+                        ),
+                        token=token,
                     )
                     fb_messaging.send(message)
                     print(f"Пуш успешно отправлен на токен пользователя {user_id}")
