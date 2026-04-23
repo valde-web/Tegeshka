@@ -17,7 +17,8 @@ messaging.onBackgroundMessage(function(payload) {
     const notificationOptions = {
         body: payload.notification.body,
         icon: '/static/1.png',
-        badge="https://tegeshka.onrender.com/static/1.png",
+        badge: '/static/1.png',
+        vibrate: [200, 100, 200],
         data: payload.data
     };
     return self.registration.showNotification(notificationTitle, notificationOptions);

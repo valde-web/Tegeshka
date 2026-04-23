@@ -581,6 +581,11 @@ ws.onmessage = (ev) => {
         if (j.sender_id || j.text || j.file_url) {
             const myId = localStorage.getItem('myId');
             const isMe = String(j.sender_id) === String(myId);
+            if (!isMe) {
+                // Создаем аудио-объект и играем звук
+                const audio = new Audio('/static/zvukTG.mp3'); 
+                audio.play().catch(e => console.log("Звук заблокирован до первого клика"));
+            }
             const side = isMe ? 'my' : 'other';
             const name = j.display_name || '';
             const text = j.text || '';

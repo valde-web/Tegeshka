@@ -167,8 +167,6 @@ def authenticate_user(username: str, password: str):
     return user
 
 async def get_current_user(token: str = Depends(lambda: None), authorization: Optional[str] = None):
-    # This dependency is simplified for WebSocket / endpoints
-    # For HTTP endpoints token comes from Authorization header "Bearer <token>"
     raise NotImplementedError
 
 def get_db():
@@ -450,8 +448,8 @@ async def send_push_notification(room, sender_name, text, exclude_id=None):
                         webpush=fb_messaging.WebpushConfig(
                         headers={"Urgency": "high"},
                     notification=fb_messaging.WebpushNotification(
-                    icon="https://tegeshka.onrender.com/static/1.png",
-                    badge="https://tegeshka.onrender.com/static/1.png",
+                    icon="/static/1.png",
+                    badge="/static/1.png",
                     ),
                             fcm_options=fb_messaging.WebpushFCMOptions(
                                 link=f"https://tegeshka.onrender.com/?room={room}"
