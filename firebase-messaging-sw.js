@@ -13,11 +13,13 @@ const messaging = firebase.messaging();
 // Фоновая обработка клика по уведомлению
 messaging.onBackgroundMessage(function(payload) {
     console.log('Получено фоновое сообщение:', payload);
-    const notificationTitle = payload.notification.title;
+    const notificationTitle = payload.notification ? payload.notification.title : '';
     const notificationOptions = {
-        body: payload.notification.body,
+        body: payload.notification ? payload.notification.body : '',
         icon: '/static/1.png',
         badge: '/static/1.png',
+        tag: 'tegeshka-message', 
+        renotify: true, 
         vibrate: [200, 100, 200],
         data: payload.data
     };
