@@ -105,6 +105,11 @@ async def health():
 async def get_sw():
     return FileResponse("sw.js")
 
+class RoomMember(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(index=True)
+    room: str = Field(index=True)
+
 # Models
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -336,6 +341,12 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
 
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         userid = int(payload.get("sub"))
+
+        with Session(engine) as s:
+            existing = s.exec(select(RoomMember).where(RoomMember.user_id == userid, RoomMember.room == room)).first()
+            if not existing:
+                s.add(RoomMember(user_id=userid, room=room))
+                s.commit()
         
         # 3. Получаем display_name (безопасно)
         display_name = ""
@@ -415,7 +426,12 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
 async def send_push_notification(room, sender_name, text, exclude_id=None):
     try:
         with Session(engine) as s:
-            statement = select(User).where(User.fcm_token != None)
+            statement = (
+                select(User)
+                .join(RoomMember, User.id == RoomMember.user_id)
+                .where(RoomMember.room == str(room))
+                .where(User.fcm_token != None)
+            )
             if exclude_id is not None:
                 statement = statement.where(User.id != exclude_id)
             
@@ -450,6 +466,7 @@ async def send_push_notification(room, sender_name, text, exclude_id=None):
                     notification=fb_messaging.WebpushNotification(
                     icon="/static/1.png",
                     badge="/static/1.png",
+                    tag="tegeshka-msg"
                     ),
                             fcm_options=fb_messaging.WebpushFCMOptions(
                                 link=f"https://tegeshka.onrender.com/?room={room}"

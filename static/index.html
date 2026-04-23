@@ -511,11 +511,11 @@ async function doAuth(endpoint, isRegister = false) {
         localStorage.setItem('accesstoken', token);
         localStorage.setItem('myId', userId);
         
-        if (infoEl) infoEl.innerText = '✅ Успешно';
+        // if (infoEl) infoEl.innerText = '✅ Успешно';
         if (typeof showOnlyChat === 'function') showOnlyChat(); 
         if (typeof validateTokenAndUpdateUI === 'function') validateTokenAndUpdateUI();
         if (typeof showChatInfo === 'function') {
-            showChatInfo('Вход выполнен. Подключитесь к чату.', 'success');
+            // showChatInfo('Вход выполнен. Подключитесь к чату.', 'success');
         }
         
         validateTokenAndUpdateUI();
@@ -556,7 +556,7 @@ const roomName = (typeof roomEl !== 'undefined' && roomEl) ? (roomEl.value || '1
 const wsUrl = base + '/ws/' + encodeURIComponent(roomName) + '?token=' + encodeURIComponent(tokenValue);
 
 if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-    showChatInfo('WebSocket уже подключён', 'info');
+    showChatInfo('Вы уже в чате, чтобы войти в другой, выйдите из аккаунта и зайдите заново', 'info');
     return;
 }
 
@@ -569,7 +569,7 @@ try {
 }
 
 ws.addEventListener('open', () => {
-    appendMessage('--- Вы вошли в чат ---', 'system');
+    appendMessage('Вы вошли в чат', 'system');
 });
 
 ws.onmessage = (ev) => {
@@ -711,7 +711,6 @@ async function sendMessage() {
 
             const parsed = await res.json();
             file_url = parsed.file_url || parsed.url || null;
-            // console.log('Файл успешно загружен, URL:', file_url);
 
         } catch (err) {
             console.error('Ошибка в fetch /upload:', err);
