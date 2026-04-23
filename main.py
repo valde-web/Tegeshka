@@ -449,10 +449,10 @@ async def send_push_notification(room, sender_name, text, exclude_id=None):
                             title=f"{sender_name}",
                             body=text if text else "Прислал(а) файл"
                         ),
-                        data={
-                            "room": str(room),
-                            "click_action": f"/?room={room}"
-                        },
+                        # data={
+                            # "room": str(room),
+                            # "click_action": f"/?room={room}"
+                        # },
                         # Настройки для Android (чтобы телефон "проснулся")
                         android=fb_messaging.AndroidConfig(
                             priority='high',

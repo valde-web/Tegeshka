@@ -28,7 +28,8 @@ messaging.onBackgroundMessage(function(payload) {
 
 self.addEventListener('notificationclick', function(event) {
     event.notification.close(); // Закрываем уведомление
-
+    
+    const data = event.notification.data || {};
     const room = event.notification.data.room;
     const targetUrl = room ? `/?room=${room}` : '/';
 
