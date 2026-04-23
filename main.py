@@ -8,7 +8,7 @@ from sqlalchemy.exc import OperationalError, IntegrityError
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer
-from sqlmodel import SQLModel, Field, create_engine, Session, select, create_all
+from sqlmodel import SQLModel, Field, create_engine, Session, select
 from sqlalchemy import create_engine, Column, Integer, String
 # from sqlalchemy.orm import Session
 import firebase_admin
