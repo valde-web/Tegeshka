@@ -8,7 +8,7 @@ from sqlalchemy.exc import OperationalError, IntegrityError
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer
-from sqlmodel import SQLModel, Field, create_engine, Session, select
+from sqlmodel import SQLModel, Field, create_engine, Session, select, create_all
 from sqlalchemy import create_engine, Column, Integer, String
 # from sqlalchemy.orm import Session
 import firebase_admin
@@ -352,7 +352,6 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
         display_name = ""
         try:
             with Session(engine) as s:
-                from sqlmodel import select
                 user = s.get(User, userid) 
                 if user:
                     # Берем display_name, если нет - логин, если нет - пусто
