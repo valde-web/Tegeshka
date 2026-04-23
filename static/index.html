@@ -238,7 +238,7 @@
           width: 12px; /* Ширина вертикальной полосы прокрутки */
           height: 12px; /* Высота горизонтальной полосы прокрутки */
         }
-        @media (max-width: 600px) {.row2 {margin-left: 13px;}}
+        @media (max-width: 700px) {.row2 {margin-left: 13px;}}
     </style>
 </head>
 <body>
@@ -638,17 +638,20 @@ if (logoutBtn) {
     logoutBtn.addEventListener('click', (e) => { 
         e.preventDefault();
         if (ws) { 
-            ws.close(); 
+            try { ws.close(); } catch (ex) { } 
             ws = null; 
         } 
         tokenValue = null; 
-        // Удаляем именно тот ключ, который создали при логине
         localStorage.removeItem('accesstoken'); 
+
+        if (displayNameEl) {
+            displayNameEl.style.display = 'none';
+            displayNameEl.value = ''; 
+        }
         
         appendMessage('Выход из чата. Соединение разорвано', 'system'); 
         showOnlyAuth(); 
         
-        // Очищаем инпуты для безопасности
         if (usernameEl) usernameEl.value = '';
         if (passwordEl) passwordEl.value = '';
     }); 
