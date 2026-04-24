@@ -690,18 +690,17 @@ ws.onmessage = (ev) => {
             if (j.file_url) {
                 const url = j.file_url.toLowerCase();
                 const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
-                const isVoice = url.includes('voice'); 
-                const isVideoCircle = url.includes('circle');
-                if (isImage) {
-                    fileHtml = `<img src="${j.file_url}" style="max-width:100%; border-radius:8px; margin-top:8px; cursor:pointer;" onclick="window.open(this.src)">`;
-                } else if (isVoice) {
+                
+                // Проверяем тип, который мы сами отправили
+                if (j.msg_type === 'voice') {
                     fileHtml = `
                     <div class="voice-player">
                         <button class="play-btn" onclick="toggleAudio(this, '${j.file_url}')">▶</button>
                         <div class="voice-progress"><div class="voice-progress-fill"></div></div>
-                        <small class="duration">0:00</small>
+                        <small class="duration" style="color:#aaa; font-size:10px; margin-left:5px;">0:00</small>
                     </div>`;
-                } else if (isVideoCircle) {
+                } 
+                else if (j.msg_type === 'video') {
                     fileHtml = `
                     <div class="video-circle-container" onclick="toggleVideo(this, '${j.file_url}')">
                         <video class="video-circle-node" src="${j.file_url}" playsinline></video>
@@ -709,8 +708,12 @@ ws.onmessage = (ev) => {
                             <circle class="video-progress-circle" cx="105" cy="105" r="100"></circle>
                         </svg>
                     </div>`;
-                } else {
-                    fileHtml = `<a href="${j.file_url}" target="_blank" style="color:#00afff; text-decoration:none; display:block; margin-top:8px;">📁 Файл</a>`;
+                } 
+                else if (isImage) {
+                    fileHtml = `<img src="${j.file_url}" style="max-width:100%; border-radius:8px; margin-top:8px; cursor:pointer;" onclick="window.open(this.src)">`;
+                } 
+                else {
+                    fileHtml = `<a href="${j.file_url}" target="_blank" style="color:#00afff; text-decoration:none; display:block; margin-top:8px;">📁 ${j.file_url.split('/').pop()}</a>`;
                 }
             }
 
@@ -927,7 +930,7 @@ voiceBtn.onclick = async () => {
     mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
     mediaRecorder.onstop = async () => {
         const blob = new Blob(audioChunks, { type: 'audio/webm' });
-        await uploadAndSendMedia(blob, 'voice.webm');
+        await uploadAndSendMedia(blob, 'voice.webm', 'voice');
         stream.getTracks().forEach(t => t.stop());
     };
 
@@ -958,7 +961,7 @@ videoBtn.onclick = async () => {
     mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
     mediaRecorder.onstop = async () => {
         const blob = new Blob(audioChunks, { type: 'video/webm' });
-        await uploadAndSendMedia(blob, 'circle.webm');
+        await uploadAndSendMedia(blob, 'circle.webm', 'video');
         stream.getTracks().forEach(t => t.stop());
     };
 
@@ -967,7 +970,7 @@ videoBtn.onclick = async () => {
 };
 
 // Функция загрузки записанного медиа (использует твою логику fetch /upload)
-async function uploadAndSendMedia(blob, filename) {
+async function uploadAndSendMedia(blob, filename, type) {
     const tokenValue = localStorage.getItem('accesstoken');
     const fd = new FormData();
     fd.append('file', blob, filename);
@@ -978,9 +981,16 @@ async function uploadAndSendMedia(blob, filename) {
         const parsed = await res.json();
         const file_url = parsed.file_url || parsed.url;
         
-        // Отправляем через WebSocket
-        const room = document.getElementById('room').value || '1';
-        ws.send(JSON.stringify({ text: '', file_url: file_url, room: room }));
+        const roomInput = document.getElementById('room');
+        const room = roomInput ? (roomInput.value || '1') : '1';
+        
+        // ОТПРАВЛЯЕМ ТИП В JSON
+        ws.send(JSON.stringify({ 
+            text: '', 
+            file_url: file_url, 
+            room: room,
+            msg_type: type // 'voice' или 'video'
+        }));
     } catch (err) {
         console.error("Ошибка загрузки медиа:", err);
     }
