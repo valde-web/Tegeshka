@@ -182,25 +182,24 @@
 
         #send {
         background: none;
-        margin-top: 3px;
         padding: 10px 10px !important;
         border-radius: 100px;
 
-        }
-
-        #send img {
-        position: relative;
-        top: 2px;
         }
 
         #attachBtn {
         background: none;
-        margin-top: 7px;
         padding: 10px 10px !important;
         border-radius: 100px;
         }
 
-        #attachBtn img {
+        #videoBtn, #voiceBtn {
+        background: none;
+        padding: 10px 10px !important;
+        border-radius: 100px;
+        }
+
+        #attachBtn img, #send img, #videoBtn img, #voiceBtn img {
         position: relative;
         top: 2px;
         }
@@ -314,7 +313,7 @@
           width: 12px; /* Ширина вертикальной полосы прокрутки */
           height: 12px; /* Высота горизонтальной полосы прокрутки */
         }
-        @media (max-width: 700px) {.row2 {margin-left: 13px;}}
+        @media (max-width: 700px) {.controls-row2 {margin-left: 13px;}}
     </style>
 </head>
 <body>
@@ -352,20 +351,22 @@
         <div class="row" style="width:100%;">
         <textarea id="text" rows="3" placeholder="Напишите сообщение..." style="margin-top:8px; resize:none; align-items:flex-start; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;"></textarea>
   
-        <div class="controls-row" style="width: 12%; display: flex; margin-left: 10px; padding: 0 0;">
+        <div class="controls-row2" style="display: flex; margin-left: 10px; padding: 0 0;">
             <input type="file" id="file" style="display:none">
-            <div class="row2" style="flex-direction: column; gap: 0;">
+            <div class="row2" style="display: grid; grid-template-columns: 40px 40px; grid-template-rows: 40px 40px;  align-items: center; justify-items: center; margin-top: 11px;">
+            <!-- Скрепка файл -->
             <button id="attachBtn" type="button" aria-label="Прикрепить файл" title="Прикрепить файл">
             <img src="https://s.fotora.ru/1d29182e85c24e3e.png" width="20" height="20"></button>
             <!-- Голос -->
-            <button id="voiceBtn" type="button" title="Голосовое сообщение" style="background: none; border: none; cursor: pointer;">
-            <span id="voiceIcon">🎤</span>
+            <button id="voiceBtn" type="button" title="Голосовое сообщение">
+            <img src="https://s.fotora.ru/cb89d6c22bf9d062.png" width="20" height="20"></button>
             </button>
             <!-- Видео-кружок -->
-            <button id="videoBtn" type="button" title="Видео-кружок" style="background: none; border: none; cursor: pointer;">
-            <span id="videoIcon">⭕</span>
+            <button id="videoBtn" type="button" title="Кружок">
+             <img src="https://s.fotora.ru/816fd3692efab9c4.png" width="20" height="20"></button>
             </button>
-            <button id="send" type="button">
+            <!-- Отправить -->
+            <button id="send" type="button" title="Отправить">
             <img src="https://s.fotora.ru/3a00c1be9ec0baa7.png" width="20" height="20"></button>
             </div>
         </div>
@@ -486,7 +487,7 @@ function showOnlyAuth() {
     const chatCard = document.getElementById('chat-card');
     
     if (authSection) authSection.style.display = 'block';
-    if (chatCard) chatCard.style.display = 'none';
+    if (chatCard) chatCard.style.display = '';
 }
 
 // 4. ЗАПУСК ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
