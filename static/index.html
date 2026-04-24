@@ -215,28 +215,80 @@
         font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
 
-/* Стиль для видео-кружка в чате */
-.video-circle {
+/* Контейнер голосового сообщения */
+.voice-player {
+    display: flex;
+    align-items: center;
+    background: #2c2c2c;
+    border-radius: 20px;
+    padding: 8px 15px;
+    gap: 10px;
+    min-width: 200px;
+    margin-top: 10px;
+}
+.play-btn {
+    background: #00afff;
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.voice-progress {
+    flex-grow: 1;
+    height: 4px;
+    background: #444;
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+}
+.voice-progress-fill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 0%;
+    background: #00afff;
+}
+
+/* Контейнер видео-кружка */
+.video-circle-container {
+    position: relative;
     width: 200px;
     height: 200px;
+    margin-top: 10px;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+.video-circle-container:active {
+    transform: scale(1.1); /* Увеличение при нажатии */
+}
+.video-circle-node {
+    width: 100%;
+    height: 100%;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid #444;
-    display: block;
-    margin-top: 8px;
     background: #000;
+    mask-image: radial-gradient(circle, white 100%, black 100%); /* Идеальный круг */
+    -webkit-mask-image: -webkit-radial-gradient(circle, white 100%, black 100%);
 }
-
-/* Анимация мигания при записи */
-.recording {
-    animation: blink 1s infinite;
-    color: red !important;
+/* Круговая шкала (SVG) */
+.video-progress-svg {
+    position: absolute;
+    top: -5px; left: -5px;
+    width: 210px; height: 210px;
+    transform: rotate(-90deg); /* Чтобы шкала шла с 12 часов */
+    pointer-events: none;
 }
-
-@keyframes blink {
-    0% { opacity: 1; }
-    50% { opacity: 0.5; }
-    100% { opacity: 1; }
+.video-progress-circle {
+    fill: none;
+    stroke: #00afff;
+    stroke-width: 3;
+    stroke-dasharray: 628; /* Длина окружности (2 * pi * 100) */
+    stroke-dashoffset: 628;
+    transition: stroke-dashoffset 0.1s linear;
 }
 
         /* Ползунок (thumb) */
@@ -473,85 +525,6 @@ function showChatInfo(msg = '', kind = 'info') {
 
 showOnlyAuth();
 
-let mediaRecorder;
-let audioChunks = [];
-let videoStream;
-
-// --- ЗАПИСЬ ГОЛОСА ---
-const voiceBtn = document.getElementById('voiceBtn');
-voiceBtn.onclick = async () => {
-    if (mediaRecorder && mediaRecorder.state === "recording") {
-        mediaRecorder.stop();
-        voiceBtn.classList.remove('recording');
-        return;
-    }
-
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-    audioChunks = [];
-
-    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-    mediaRecorder.onstop = async () => {
-        const blob = new Blob(audioChunks, { type: 'audio/webm' });
-        await uploadAndSendMedia(blob, 'voice.webm');
-        stream.getTracks().forEach(t => t.stop());
-    };
-
-    mediaRecorder.start();
-    voiceBtn.classList.add('recording');
-};
-
-// --- ЗАПИСЬ ВИДЕО-КРУЖКА ---
-const videoBtn = document.getElementById('videoBtn');
-const videoPreview = document.getElementById('videoPreview');
-
-videoBtn.onclick = async () => {
-    if (mediaRecorder && mediaRecorder.state === "recording") {
-        mediaRecorder.stop();
-        videoBtn.classList.remove('recording');
-        videoPreview.style.display = 'none';
-        return;
-    }
-
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 400, height: 400 } });
-    videoStream = stream;
-    videoPreview.style.display = 'block';
-    videoPreview.srcObject = stream;
-
-    mediaRecorder = new MediaRecorder(stream);
-    audioChunks = []; // используем тот же массив для простоты
-
-    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-    mediaRecorder.onstop = async () => {
-        const blob = new Blob(audioChunks, { type: 'video/webm' });
-        await uploadAndSendMedia(blob, 'circle.webm');
-        stream.getTracks().forEach(t => t.stop());
-    };
-
-    mediaRecorder.start();
-    videoBtn.classList.add('recording');
-};
-
-// Функция загрузки записанного медиа (использует твою логику fetch /upload)
-async function uploadAndSendMedia(blob, filename) {
-    const tokenValue = localStorage.getItem('accesstoken');
-    const fd = new FormData();
-    fd.append('file', blob, filename);
-    fd.append('token', tokenValue);
-
-    try {
-        const res = await fetch('/upload', { method: 'POST', body: fd });
-        const parsed = await res.json();
-        const file_url = parsed.file_url || parsed.url;
-        
-        // Отправляем через WebSocket
-        const room = document.getElementById('room').value || '1';
-        ws.send(JSON.stringify({ text: '', file_url: file_url, room: room }));
-    } catch (err) {
-        console.error("Ошибка загрузки медиа:", err);
-    }
-}
-
 function appendMessage(htmlContent, side = 'other') {
     const messagesEl = document.getElementById('messages');
     if (!messagesEl) return;
@@ -717,16 +690,27 @@ ws.onmessage = (ev) => {
             if (j.file_url) {
                 const url = j.file_url.toLowerCase();
                 const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
-                const isVoice = url.includes('voice.webm') || url.endsWith('.ogg');
-                const isVideoCircle = url.includes('circle.webm');
+                const isVoice = url.includes('voice'); 
+                const isVideoCircle = url.includes('circle');
                 if (isImage) {
                     fileHtml = `<img src="${j.file_url}" style="max-width:100%; border-radius:8px; margin-top:8px; cursor:pointer;" onclick="window.open(this.src)">`;
                 } else if (isVoice) {
-                    fileHtml = `<audio controls src="${j.file_url}" style="width:100%; margin-top:8px;"></audio>`;
+                    fileHtml = `
+                    <div class="voice-player">
+                        <button class="play-btn" onclick="toggleAudio(this, '${j.file_url}')">▶</button>
+                        <div class="voice-progress"><div class="voice-progress-fill"></div></div>
+                        <small class="duration">0:00</small>
+                    </div>`;
                 } else if (isVideoCircle) {
-                    fileHtml = `<video src="${j.file_url}" class="video-circle" controls></video>`;
+                    fileHtml = `
+                    <div class="video-circle-container" onclick="toggleVideo(this, '${j.file_url}')">
+                        <video class="video-circle-node" src="${j.file_url}" playsinline></video>
+                        <svg class="video-progress-svg">
+                            <circle class="video-progress-circle" cx="105" cy="105" r="100"></circle>
+                        </svg>
+                    </div>`;
                 } else {
-                    fileHtml = `<a href="${j.file_url}" target="_blank" style="color:#00afff; text-decoration:none; display:block; margin-top:8px;">📁 ${j.file_url.split('/').pop()}</a>`;
+                    fileHtml = `<a href="${j.file_url}" target="_blank" style="color:#00afff; text-decoration:none; display:block; margin-top:8px;">📁 Файл</a>`;
                 }
             }
 
@@ -922,6 +906,85 @@ if (fileInput) {
     };
 }
 validateTokenAndUpdateUI();
+
+let mediaRecorder;
+let audioChunks = [];
+let videoStream;
+
+// --- ЗАПИСЬ ГОЛОСА ---
+const voiceBtn = document.getElementById('voiceBtn');
+voiceBtn.onclick = async () => {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+        voiceBtn.classList.remove('recording');
+        return;
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.onstop = async () => {
+        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+        await uploadAndSendMedia(blob, 'voice.webm');
+        stream.getTracks().forEach(t => t.stop());
+    };
+
+    mediaRecorder.start();
+    voiceBtn.classList.add('recording');
+};
+
+// --- ЗАПИСЬ ВИДЕО-КРУЖКА ---
+const videoBtn = document.getElementById('videoBtn');
+const videoPreview = document.getElementById('videoPreview');
+
+videoBtn.onclick = async () => {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+        videoBtn.classList.remove('recording');
+        videoPreview.style.display = 'none';
+        return;
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 400, height: 400 } });
+    videoStream = stream;
+    videoPreview.style.display = 'block';
+    videoPreview.srcObject = stream;
+
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = []; // используем тот же массив для простоты
+
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.onstop = async () => {
+        const blob = new Blob(audioChunks, { type: 'video/webm' });
+        await uploadAndSendMedia(blob, 'circle.webm');
+        stream.getTracks().forEach(t => t.stop());
+    };
+
+    mediaRecorder.start();
+    videoBtn.classList.add('recording');
+};
+
+// Функция загрузки записанного медиа (использует твою логику fetch /upload)
+async function uploadAndSendMedia(blob, filename) {
+    const tokenValue = localStorage.getItem('accesstoken');
+    const fd = new FormData();
+    fd.append('file', blob, filename);
+    fd.append('token', tokenValue);
+
+    try {
+        const res = await fetch('/upload', { method: 'POST', body: fd });
+        const parsed = await res.json();
+        const file_url = parsed.file_url || parsed.url;
+        
+        // Отправляем через WebSocket
+        const room = document.getElementById('room').value || '1';
+        ws.send(JSON.stringify({ text: '', file_url: file_url, room: room }));
+    } catch (err) {
+        console.error("Ошибка загрузки медиа:", err);
+    }
+}
 });
 </script>
 </body>
