@@ -454,6 +454,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const attachBtn = document.getElementById('attachBtn'); 
     const fileNameEl = document.getElementById('file-name'); 
     const sendBtn = document.getElementById('send');
+    window.toggleAudio = function() { };
+    window.toggleVideo = function() { };
     let ws = null; 
     let tokenValue = localStorage.getItem('accesstoken'); 
     // 1. Главная функция переключения интерфейса
@@ -1002,7 +1004,7 @@ async function uploadAndSendMedia(blob, filename, type) {
     }
 }
 
-function toggleAudio(btn, url) {
+window.toggleAudio = function(btn, url) {
     let audio = btn.querySelector('audio');
     if (!audio) {
         audio = new Audio(url);
@@ -1011,6 +1013,7 @@ function toggleAudio(btn, url) {
             const progress = (audio.currentTime / audio.duration) * 100;
             const fill = btn.parentElement.querySelector('.voice-progress-fill');
             if (fill) fill.style.width = progress + '%';
+            
             let mins = Math.floor(audio.currentTime / 60);
             let secs = Math.floor(audio.currentTime % 60);
             const dur = btn.parentElement.querySelector('.duration');
@@ -1018,25 +1021,34 @@ function toggleAudio(btn, url) {
         };
         audio.onended = () => { btn.innerText = '▶'; };
     }
-    if (audio.paused) { audio.play(); btn.innerText = '⏸'; } 
-    else { audio.pause(); btn.innerText = '▶'; }
-}
+    if (audio.paused) { 
+        audio.play().catch(e => console.error("Ошибка воспроизведения:", e));
+        btn.innerText = '⏸'; 
+    } else { 
+        audio.pause(); 
+        btn.innerText = '▶'; 
+    }
+};
 
-function toggleVideo(container, url) {
+window.toggleVideo = function(container, url) {
     const video = container.querySelector('video');
     const circle = container.querySelector('.video-progress-circle');
     const totalLength = 628; 
+
     if (video.paused) {
-        video.play();
+        video.play().catch(e => console.error("Ошибка видео:", e));
         video.ontimeupdate = () => {
-            const offset = totalLength - (video.currentTime / video.duration) * totalLength;
+            const progress = video.currentTime / video.duration;
+            const offset = totalLength - (progress * totalLength);
             if (circle) circle.style.strokeDashoffset = offset;
         };
-        video.onended = () => { if (circle) circle.style.strokeDashoffset = totalLength; };
+        video.onended = () => { 
+            if (circle) circle.style.strokeDashoffset = totalLength; 
+        };
     } else {
         video.pause();
     }
-}
+};
 });
 </script>
 </body>
