@@ -705,6 +705,7 @@ ws.onmessage = (ev) => {
                         <div class="voice-progress"><div class="voice-progress-fill"></div></div>
                         <small class="duration" style="color:#aaa; font-size:10px; margin-left:5px;">0:00</small>
                     </div>`;
+                    if (!isMe) { new Audio('/static/zvukTG.mp3').play().catch(()=>{}); }
                 } else if (isVideo) {
                     messageText = '';
                     fileHtml = `
@@ -714,6 +715,7 @@ ws.onmessage = (ev) => {
                             <circle class="video-progress-circle" cx="105" cy="105" r="100"></circle>
                         </svg>
                     </div>`;
+                    if (!isMe) { new Audio('/static/zvukTG.mp3').play().catch(()=>{}); }
                 } else if (isImage) {
                     fileHtml = `<img src="${j.file_url}" style="max-width:100%; border-radius:8px; margin-top:8px; cursor:pointer;" onclick="window.open(this.src)">`;
                 } 
