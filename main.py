@@ -366,7 +366,7 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
                 break
 
             text = data.get("text")
-            file_url_from_js = data.get("file_url")
+            file_url = data.get("file_url")
 
             # 5. СОХРАНЕНИЕ В БАЗУ (с защитой от вылета)
             new_id = 0
@@ -377,7 +377,7 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
                     sender_id=userid,
                     room=room,
                     text=text,
-                    file_path=file_url_from_js
+                    file_path=file_url
                 )
                 with Session(engine) as s:
                     s.add(msg)
@@ -398,7 +398,7 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
                 "display_name": display_name,
                 "room": room,
                 "text": text,
-                "file_url": file_url_from_js,
+                "file_url": file_url,
                 "created_at": iso_date
             }
             
@@ -406,7 +406,7 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
             await manager.broadcast(room, out_payload)
 
             try:
-                await send_push_notification(room, display_name, text, exclude_id=userid)
+                await send_push_notification(room, display_name, text, file_url, exclude_id=userid)
                 print(f"Пуш-уведомление отправлено для комнаты {room}")
             except Exception as push_e:
                 print(f"Ошибка при отправке пуша: {push_e}")
@@ -418,7 +418,7 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
     finally:
         manager.disconnect(room, websocket)
 
-async def send_push_notification(room, sender_name, text, exclude_id=None):
+async def send_push_notification(room, sender_name, text, file_url=None, exclude_id=None):
     try:
         with Session(engine) as s:
             statement = (
@@ -440,16 +440,22 @@ async def send_push_notification(room, sender_name, text, exclude_id=None):
 
             for token, user_id in unique_tokens.items():
                 try:
+                    t = (text or "").strip()
+                    if t == "__voice__":
+                        push_body = "Голосовое сообщение"
+                    elif t == "__video__":
+                        push_body = "Видеосообщение"
+                    elif t:
+                        push_body = t
+                    elif file_url:
+                        push_body = "Прислал файл"
+                    else:
+                        push_body = "Новое сообщение"
                     message = fb_messaging.Message(
                         notification=fb_messaging.Notification(
                             title=f"{sender_name}",
-                            body=text if text else "Прислал(а) файл"
+                            body=push_body
                         ),
-                        # data={
-                            # "room": str(room),
-                            # "click_action": f"/?room={room}"
-                        # },
-                        # Настройки для Android (чтобы телефон "проснулся")
                         android=fb_messaging.AndroidConfig(
                             priority='high',
                             notification=fb_messaging.AndroidNotification(
@@ -459,9 +465,11 @@ async def send_push_notification(room, sender_name, text, exclude_id=None):
                         webpush=fb_messaging.WebpushConfig(
                         headers={"Urgency": "high"},
                     notification=fb_messaging.WebpushNotification(
-                    icon="/static/1.png",
-                    badge="/static/1.png",
-                    tag="tegeshka-msg"
+                            icon="/static/1.png",
+                            badge="/static/1.png",
+                            tag="tegeshka-msg",
+                            title=f"{sender_name}",
+                            body=push_body
                     ),
                             fcm_options=fb_messaging.WebpushFCMOptions(
                                 link=f"https://tegeshka.onrender.com/?room={room}"

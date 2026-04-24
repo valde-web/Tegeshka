@@ -702,7 +702,7 @@ ws.onmessage = (ev) => {
                 const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
 
                 if (isVoice) {
-                    messageText = '';
+                    messageText = 'Голосовое сообщение';
                     fileHtml = `
                     <div class="voice-player">
                         <button class="play-btn" type="button" onclick="toggleAudio(this)">▶</button>
@@ -712,7 +712,7 @@ ws.onmessage = (ev) => {
                         <small class="duration" style="color:#aaa; font-size:10px; margin-left:5px;">0:00</small>
                     </div>`;
                 } else if (isVideo) {
-                    messageText = '';
+                    messageText = 'Видеосообщение';
                     fileHtml = `
                     <div class="video-circle-container" onclick="toggleVideo(this)">
                         <video class="video-circle-node" src="${j.file_url}" playsinline preload="metadata"></video>
