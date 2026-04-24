@@ -215,6 +215,30 @@
         font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
 
+/* Стиль для видео-кружка в чате */
+.video-circle {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #444;
+    display: block;
+    margin-top: 8px;
+    background: #000;
+}
+
+/* Анимация мигания при записи */
+.recording {
+    animation: blink 1s infinite;
+    color: red !important;
+}
+
+@keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
         /* Ползунок (thumb) */
         ::-webkit-scrollbar-thumb {
         background-color: #a6a6a6; /* Цвет ползунка */
@@ -281,6 +305,14 @@
             <div class="row2" style="flex-direction: column; gap: 0;">
             <button id="attachBtn" type="button" aria-label="Прикрепить файл" title="Прикрепить файл">
             <img src="https://s.fotora.ru/1d29182e85c24e3e.png" width="20" height="20"></button>
+            <!-- Голос -->
+            <button id="voiceBtn" type="button" title="Голосовое сообщение" style="background: none; border: none; cursor: pointer;">
+            <span id="voiceIcon">🎤</span>
+            </button>
+            <!-- Видео-кружок -->
+            <button id="videoBtn" type="button" title="Видео-кружок" style="background: none; border: none; cursor: pointer;">
+            <span id="videoIcon">⭕</span>
+            </button>
             <button id="send" type="button">
             <img src="https://s.fotora.ru/3a00c1be9ec0baa7.png" width="20" height="20"></button>
             </div>
@@ -294,6 +326,8 @@
         <div id="chat-info" aria-live="polite" style="margin-top:8px;"></div>
     </div>
 </div>
+
+<video id="videoPreview" style="display:none; position:fixed; bottom:80px; right:20px; width:150px; height:150px; border-radius:50%; object-fit:cover; border:2px solid #00afff; z-index:1000; background:#000;" autoplay muted></video>
 
 <script>
 const firebaseConfig = {
@@ -438,6 +472,85 @@ function showChatInfo(msg = '', kind = 'info') {
 } 
 
 showOnlyAuth();
+
+let mediaRecorder;
+let audioChunks = [];
+let videoStream;
+
+// --- ЗАПИСЬ ГОЛОСА ---
+const voiceBtn = document.getElementById('voiceBtn');
+voiceBtn.onclick = async () => {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+        voiceBtn.classList.remove('recording');
+        return;
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.onstop = async () => {
+        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+        await uploadAndSendMedia(blob, 'voice.webm');
+        stream.getTracks().forEach(t => t.stop());
+    };
+
+    mediaRecorder.start();
+    voiceBtn.classList.add('recording');
+};
+
+// --- ЗАПИСЬ ВИДЕО-КРУЖКА ---
+const videoBtn = document.getElementById('videoBtn');
+const videoPreview = document.getElementById('videoPreview');
+
+videoBtn.onclick = async () => {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+        videoBtn.classList.remove('recording');
+        videoPreview.style.display = 'none';
+        return;
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 400, height: 400 } });
+    videoStream = stream;
+    videoPreview.style.display = 'block';
+    videoPreview.srcObject = stream;
+
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = []; // используем тот же массив для простоты
+
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.onstop = async () => {
+        const blob = new Blob(audioChunks, { type: 'video/webm' });
+        await uploadAndSendMedia(blob, 'circle.webm');
+        stream.getTracks().forEach(t => t.stop());
+    };
+
+    mediaRecorder.start();
+    videoBtn.classList.add('recording');
+};
+
+// Функция загрузки записанного медиа (использует твою логику fetch /upload)
+async function uploadAndSendMedia(blob, filename) {
+    const tokenValue = localStorage.getItem('accesstoken');
+    const fd = new FormData();
+    fd.append('file', blob, filename);
+    fd.append('token', tokenValue);
+
+    try {
+        const res = await fetch('/upload', { method: 'POST', body: fd });
+        const parsed = await res.json();
+        const file_url = parsed.file_url || parsed.url;
+        
+        // Отправляем через WebSocket
+        const room = document.getElementById('room').value || '1';
+        ws.send(JSON.stringify({ text: '', file_url: file_url, room: room }));
+    } catch (err) {
+        console.error("Ошибка загрузки медиа:", err);
+    }
+}
 
 function appendMessage(htmlContent, side = 'other') {
     const messagesEl = document.getElementById('messages');
@@ -602,9 +715,16 @@ ws.onmessage = (ev) => {
             // Обработка файлов и картинок
             let fileHtml = '';
             if (j.file_url) {
-                const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(j.file_url);
+                const url = j.file_url.toLowerCase();
+                const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+                const isVoice = url.includes('voice.webm') || url.endsWith('.ogg');
+                const isVideoCircle = url.includes('circle.webm');
                 if (isImage) {
                     fileHtml = `<img src="${j.file_url}" style="max-width:100%; border-radius:8px; margin-top:8px; cursor:pointer;" onclick="window.open(this.src)">`;
+                } else if (isVoice) {
+                    fileHtml = `<audio controls src="${j.file_url}" style="width:100%; margin-top:8px;"></audio>`;
+                } else if (isVideoCircle) {
+                    fileHtml = `<video src="${j.file_url}" class="video-circle" controls></video>`;
                 } else {
                     fileHtml = `<a href="${j.file_url}" target="_blank" style="color:#00afff; text-decoration:none; display:block; margin-top:8px;">📁 ${j.file_url.split('/').pop()}</a>`;
                 }
