@@ -668,43 +668,40 @@ ws.addEventListener('open', () => {
 });
 
 ws.onmessage = (ev) => {
-    // console.log("=== ПОЛУЧЕНО ИЗ WS ===", ev.data);
     try {
         const j = JSON.parse(ev.data);
         
-        // Проверяем, что это сообщение, а не системный мусор
+        // Проверяем, что это сообщение
         if (j.sender_id || j.text || j.file_url) {
             const myId = localStorage.getItem('myId');
             const isMe = String(j.sender_id) === String(myId);
-            if (!isMe) {
-                // Создаем аудио-объект и играем звук
-                const audio = new Audio('/static/zvukTG.mp3'); 
-                audio.play().catch(e => console.log("Звук заблокирован до первого клика"));
-            }
             const side = isMe ? 'my' : 'other';
-            const name = j.display_name || '';
-            const text = j.text || '';
+            const name = j.display_name || 'Аноним';
             
-            // Обработка файлов и картинок
+            let messageText = j.text || '';
             let fileHtml = '';
+
+            // Определение типа контента
             const isVoice = messageText === '__voice__';
             const isVideo = messageText === '__video__';
+
             if (j.file_url) {
                 const url = j.file_url.toLowerCase();
                 const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
-                
-                // Проверяем тип, который мы сами отправили
+
                 if (isVoice) {
-                    messageText = ''; // Стираем служебный текст "__voice__"
+                    messageText = ''; // Прячем служебный текст
                     fileHtml = `
                     <div class="voice-player">
                         <button class="play-btn" type="button" onclick="toggleAudio(this, '${j.file_url}')">▶</button>
                         <div class="voice-progress"><div class="voice-progress-fill"></div></div>
                         <small class="duration" style="color:#aaa; font-size:10px; margin-left:5px;">0:00</small>
                     </div>`;
+                    // Проигрываем звук уведомления
+                    if (!isMe) { new Audio('/static/notify.mp3').play().catch(()=>{}); }
                 } 
                 else if (isVideo) {
-                    messageText = ''; // Стираем служебный текст "__video__"
+                    messageText = ''; // Прячем служебный текст
                     fileHtml = `
                     <div class="video-circle-container" onclick="toggleVideo(this, '${j.file_url}')">
                         <video class="video-circle-node" src="${j.file_url}" playsinline></video>
@@ -712,6 +709,7 @@ ws.onmessage = (ev) => {
                             <circle class="video-progress-circle" cx="105" cy="105" r="100"></circle>
                         </svg>
                     </div>`;
+                    if (!isMe) { new Audio('/static/notify.mp3').play().catch(()=>{}); }
                 }
                 else if (isImage) {
                     fileHtml = `<img src="${j.file_url}" style="max-width:100%; border-radius:8px; margin-top:8px; cursor:pointer;" onclick="window.open(this.src)">`;
@@ -721,24 +719,28 @@ ws.onmessage = (ev) => {
                 }
             }
 
-            // Формируем внутренность бабла
+            // Сборка сообщения
             const html = `
                 <span class="msg-name">${name}</span>
-                <div class="msg-text" style="white-space: pre-wrap;">${text}</div>
+                ${messageText ? `<div class="msg-text" style="white-space: pre-wrap;">${messageText}</div>` : ''}
                 ${fileHtml}
             `;
 
+            // Вызываем функцию добавления в чат
             appendMessage(html, side);
-            return; // Важно! Уходим, чтобы не было дублей
+            return;
         }
     } catch (e) {
+        console.error("Ошибка при приеме сообщения через WS:", e);
     }
 
+    // Системные сообщения (вход/выход)
     if (!ev.data.startsWith('{')) {
         const sysMsg = document.createElement('div');
-        sysMsg.style.cssText = "text-align:center; color:#888; font-size: 1.0em; margin:10px 0; width:100%;";
+        sysMsg.style.cssText = "text-align:center; color:#888; font-size: 0.9em; margin:10px 0; width:100%;";
         sysMsg.textContent = ev.data;
-        document.getElementById('messages').appendChild(sysMsg);
+        const msgDiv = document.getElementById('messages');
+        if (msgDiv) msgDiv.appendChild(sysMsg);
     }
 };
 
@@ -997,6 +999,42 @@ async function uploadAndSendMedia(blob, filename, type) {
         }));
     } catch (err) {
         console.error("Ошибка загрузки медиа:", err);
+    }
+}
+
+function toggleAudio(btn, url) {
+    let audio = btn.querySelector('audio');
+    if (!audio) {
+        audio = new Audio(url);
+        btn.appendChild(audio);
+        audio.ontimeupdate = () => {
+            const progress = (audio.currentTime / audio.duration) * 100;
+            const fill = btn.parentElement.querySelector('.voice-progress-fill');
+            if (fill) fill.style.width = progress + '%';
+            let mins = Math.floor(audio.currentTime / 60);
+            let secs = Math.floor(audio.currentTime % 60);
+            const dur = btn.parentElement.querySelector('.duration');
+            if (dur) dur.innerText = `${mins}:${secs < 10 ? '0'+secs : secs}`;
+        };
+        audio.onended = () => { btn.innerText = '▶'; };
+    }
+    if (audio.paused) { audio.play(); btn.innerText = '⏸'; } 
+    else { audio.pause(); btn.innerText = '▶'; }
+}
+
+function toggleVideo(container, url) {
+    const video = container.querySelector('video');
+    const circle = container.querySelector('.video-progress-circle');
+    const totalLength = 628; 
+    if (video.paused) {
+        video.play();
+        video.ontimeupdate = () => {
+            const offset = totalLength - (video.currentTime / video.duration) * totalLength;
+            if (circle) circle.style.strokeDashoffset = offset;
+        };
+        video.onended = () => { if (circle) circle.style.strokeDashoffset = totalLength; };
+    } else {
+        video.pause();
     }
 }
 });
