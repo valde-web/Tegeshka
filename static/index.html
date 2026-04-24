@@ -542,7 +542,10 @@ function appendMessage(htmlContent, side = 'other') {
     wrapper.appendChild(bubble);
     messagesEl.appendChild(wrapper);
     
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    messagesEl.scrollTo({
+        top: messagesEl.scrollHeight,
+        behavior: 'smooth'
+    });
 }
 
 async function doAuth(endpoint, isRegister = false) { 
@@ -692,28 +695,25 @@ ws.onmessage = (ev) => {
                 const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
 
                 if (isVoice) {
-                    messageText = ''; // Прячем служебный текст
+                    messageText = '';
                     fileHtml = `
                     <div class="voice-player">
-                        <button class="play-btn" type="button" onclick="toggleAudio(this, '${j.file_url}')">▶</button>
+                        <button class="play-btn" type="button" onclick="toggleAudio(this)">▶</button>
+                        <!-- Аудио тег уже здесь -->
+                        <audio src="${j.file_url}" preload="metadata"></audio>
                         <div class="voice-progress"><div class="voice-progress-fill"></div></div>
                         <small class="duration" style="color:#aaa; font-size:10px; margin-left:5px;">0:00</small>
                     </div>`;
-                    // Проигрываем звук уведомления
-                    if (!isMe) { new Audio('/static/notify.mp3').play().catch(()=>{}); }
-                } 
-                else if (isVideo) {
-                    messageText = ''; // Прячем служебный текст
+                } else if (isVideo) {
+                    messageText = '';
                     fileHtml = `
-                    <div class="video-circle-container" onclick="toggleVideo(this, '${j.file_url}')">
-                        <video class="video-circle-node" src="${j.file_url}" playsinline></video>
+                    <div class="video-circle-container" onclick="toggleVideo(this)">
+                        <video class="video-circle-node" src="${j.file_url}" playsinline preload="metadata"></video>
                         <svg class="video-progress-svg">
                             <circle class="video-progress-circle" cx="105" cy="105" r="100"></circle>
                         </svg>
                     </div>`;
-                    if (!isMe) { new Audio('/static/notify.mp3').play().catch(()=>{}); }
-                }
-                else if (isImage) {
+                } else if (isImage) {
                     fileHtml = `<img src="${j.file_url}" style="max-width:100%; border-radius:8px; margin-top:8px; cursor:pointer;" onclick="window.open(this.src)">`;
                 } 
                 else {
@@ -1004,47 +1004,64 @@ async function uploadAndSendMedia(blob, filename, type) {
     }
 }
 
-window.toggleAudio = function(btn, url) {
-    let audio = btn.querySelector('audio');
-    if (!audio) {
-        audio = new Audio(url);
-        btn.appendChild(audio);
+window.toggleAudio = function(btn) {
+    // Находим аудио внутри того же родителя, где кнопка
+    const audio = btn.parentElement.querySelector('audio');
+    const fill = btn.parentElement.querySelector('.voice-progress-fill');
+    const durLabel = btn.parentElement.querySelector('.duration');
+
+    if (!audio) return;
+
+    if (audio.paused) {
+        // Останавливаем все остальные аудио в чате (как в Telegram)
+        document.querySelectorAll('audio').forEach(a => { if(a !== audio) a.pause(); });
+
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                btn.innerText = '⏸';
+            }).catch(error => {
+                console.log("Воспроизведение прервано:", error);
+            });
+        }
+
         audio.ontimeupdate = () => {
             const progress = (audio.currentTime / audio.duration) * 100;
-            const fill = btn.parentElement.querySelector('.voice-progress-fill');
             if (fill) fill.style.width = progress + '%';
             
             let mins = Math.floor(audio.currentTime / 60);
             let secs = Math.floor(audio.currentTime % 60);
-            const dur = btn.parentElement.querySelector('.duration');
-            if (dur) dur.innerText = `${mins}:${secs < 10 ? '0'+secs : secs}`;
+            if (durLabel) durLabel.innerText = `${mins}:${secs < 10 ? '0'+secs : secs}`;
         };
-        audio.onended = () => { btn.innerText = '▶'; };
-    }
-    if (audio.paused) { 
-        audio.play().catch(e => console.error("Ошибка воспроизведения:", e));
-        btn.innerText = '⏸'; 
-    } else { 
-        audio.pause(); 
-        btn.innerText = '▶'; 
+        audio.onended = () => { btn.innerText = '▶'; if(fill) fill.style.width = '0%'; };
+    } else {
+        audio.pause();
+        btn.innerText = '▶';
     }
 };
 
-window.toggleVideo = function(container, url) {
+window.toggleVideo = function(container) {
     const video = container.querySelector('video');
     const circle = container.querySelector('.video-progress-circle');
     const totalLength = 628; 
 
+    if (!video) return;
+
     if (video.paused) {
-        video.play().catch(e => console.error("Ошибка видео:", e));
+        // Останавливаем все остальные видео
+        document.querySelectorAll('video').forEach(v => { if(v !== video) v.pause(); });
+
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => { console.log("Видео прервано:", error); });
+        }
+
         video.ontimeupdate = () => {
             const progress = video.currentTime / video.duration;
             const offset = totalLength - (progress * totalLength);
             if (circle) circle.style.strokeDashoffset = offset;
         };
-        video.onended = () => { 
-            if (circle) circle.style.strokeDashoffset = totalLength; 
-        };
+        video.onended = () => { if (circle) circle.style.strokeDashoffset = totalLength; };
     } else {
         video.pause();
     }
