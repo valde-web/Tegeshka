@@ -775,7 +775,14 @@ async function doAuth(endpoint, isRegister = false) {
             body: fd
         });
 
-        let data = null;
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok) {
+            const errMsg = data?.detail || 'Ошибка сервера';
+            if (infoEl) infoEl.innerText = '❌ ' + errMsg;
+            return;
+        }
+
         const contentType = res.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
             data = await res.json();
@@ -804,18 +811,29 @@ async function doAuth(endpoint, isRegister = false) {
         // Сервер теперь возвращает ключ 'accesstoken' (мы это правили в main.py)
         const token = data && (data.accesstoken || data.token || data.access_token);
         const userId = data && (data.userid || data.user_id || data.id);
+        const dispName = data.display_name || displayName || username;
         
         if (!token || !userId) {
             if (infoEl) infoEl.innerText = 'Сервер не прислал токен или ID';
             return;
         }
 
-        if (res.ok) {
-            document.getElementById('auth-layout').style.display = 'none';
-            document.getElementById('main-layout').style.display = 'block';
-            localStorage.setItem('myId', parsed.user_id); // Сервер должен возвращать user_id
-            document.getElementById('myDisplayNameDisplay').innerText = parsed.display_name || 'Профиль';
-        }
+        localStorage.setItem('accesstoken', token);
+        localStorage.setItem('myId', userId);
+        localStorage.setItem('myDisplayName', dispName);
+
+        // 3. Обновляем интерфейс
+        document.getElementById('auth-layout').style.display = 'none';
+        document.getElementById('main-layout').style.display = 'block';
+
+        const nameDisplay = document.getElementById('myDisplayNameDisplay');
+        if (nameDisplay) nameDisplay.innerText = dispName;
+
+        // 4. Запускаем остальные процессы (теперь токен точно есть в памяти)
+        if (typeof initPush === 'function') initPush();
+        if (typeof validateTokenAndUpdateUI === 'function') validateTokenAndUpdateUI();
+        
+        console.log('✅ Авторизация успешна, ID:', userId);
 
         // Сохраняем токен под именем 'accesstoken' для синхронизации с другими частями кода
         localStorage.setItem('accesstoken', token);
