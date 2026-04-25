@@ -112,6 +112,7 @@ class User(SQLModel, table=True):
     username: str = Field(index=True, unique=True)
     hashed_password: str
     display_name: Optional[str] = Field(default=None)
+    avatar_url: Optional[str] = Field(default=None)
     fcm_token: Optional[str] = Field(default=None)
 
 class Message(SQLModel, table=True):
@@ -278,6 +279,29 @@ def login(
         "userid": user.id, 
         "username": user.username
     }
+
+@app.get("/messages/{room}")
+async def get_messages(room: str, limit: int = 50, offset: int = 0, token: str = Depends(oauth2_scheme)):
+    # Проверка токена...
+    with Session(engine) as s:
+        statement = (
+            select(Message)
+            .where(Message.room == room)
+            .order_by(Message.id.desc()) # Сначала новые
+            .limit(limit)
+            .offset(offset)
+        )
+        messages = s.exec(statement).all()
+        return messages[::-1] # Возвращаем в хронологическом порядке
+    
+@app.get("/users/search")
+async def search_users(query: str, token: str = Depends(oauth2_scheme)):
+    with Session(engine) as s:
+        statement = select(User).where(
+            (User.username.contains(query)) | (User.display_name.contains(query))
+        ).limit(10)
+        results = s.exec(statement).all()
+        return [{"id": u.id, "username": u.username, "display_name": u.display_name, "avatar": u.avatar_url} for u in results]
 
 app.mount("/files", StaticFiles(directory=UPLOAD_DIR), name="files")
 

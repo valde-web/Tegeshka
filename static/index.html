@@ -22,7 +22,7 @@
             --success-color: #3d8c40;
         }
 
-        body {
+        body, html {
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
@@ -30,7 +30,8 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
+            height: 100%;
+            overflow: hidden;
         }
 
         .container {
@@ -290,6 +291,46 @@
     transition: stroke-dashoffset 0.1s linear;
 }
 
+/* Основная обертка */
+.messenger-wrapper { display: flex; height: 100vh; width: 100vw; }
+
+/* Сайдбар */
+.sidebar { width: 350px; background: #17212b; border-right: 1px solid #111; display: flex; flex-direction: column; }
+.sidebar-header { padding: 15px; display: flex; justify-content: space-between; align-items: center; background: #17212b; }
+.sidebar-search { padding: 10px; }
+.sidebar-search input { width: 100%; background: #242f3d; border: 1px solid #111; padding: 10px; border-radius: 8px; color: white; box-sizing: border-box; }
+
+.chats-list { flex-grow: 1; overflow-y: auto; }
+.chat-item { padding: 12px 15px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: 0.2s; }
+.chat-item:hover { background: #202b36; }
+.chat-item.active { background: #2b5278; }
+
+/* Аватарки */
+.avatar-sm { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; background: #2c3b4a; }
+
+/* Правая часть (чат) */
+.chat-main { flex-grow: 1; display: flex; flex-direction: column; background: #0e1621; background-image: url('https://www.transparenttextures.com/patterns/carbon-fibre.png'); }
+.chat-header { padding: 10px 20px; background: #17212b; border-bottom: 1px solid #111; display: flex; align-items: center; }
+.chat-info { display: flex; align-items: center; gap: 12px; }
+
+.messages-container { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+
+/* Поле ввода */
+.input-area { padding: 10px 20px 20px 20px; background: #17212b; }
+textarea { flex-grow: 1; background: transparent; border: none; color: white; resize: none; font-size: 1.05em; outline: none; max-height: 200px; padding: 10px 0; }
+
+.button-grid { display: grid; grid-template-columns: repeat(4, 40px); gap: 5px; }
+.button-grid button { background: none; border: none; cursor: pointer; padding: 8px; border-radius: 50%; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
+.button-grid button:hover { background: #242f3d; }
+
+/* Кнопка выхода */
+.icon-btn { background: none; border: none; color: #888; font-size: 1.2em; cursor: pointer; }
+
+/* Сообщения (адаптация старых стилей под новую ширину) */
+.msg-wrapper { max-width: 80%; }
+.msg-wrapper.my { align-self: flex-end; }
+.msg-wrapper.other { align-self: flex-start; }
+
         /* Ползунок (thumb) */
         ::-webkit-scrollbar-thumb {
         background-color: #a6a6a6; /* Цвет ползунка */
@@ -333,48 +374,78 @@
         <div id="info" style="margin-top: 8px;"></div>
     </div>
 
-    <!-- Блок чата -->
-    <div class="card" id="chat-card">
-        <div style="display:flex; align-items:center; justify-content:space-between;">
-            <h3 style="margin:0;">Чат</h3>
-            <button id="logoutBtn" type="button" style="margin-left: 12px;">Выйти с аккаунта</button>
+    <div class="messenger-wrapper" id="main-layout" style="display: none;">
+    <!-- ЛЕВАЯ ПАНЕЛЬ (САЙДБАР) -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <div class="my-profile">
+                <img id="myAvatar" src="https://s.fotora.ru/1.png" class="avatar-sm">
+                <span id="myName" style="font-weight: bold;">Загрузка...</span>
+            </div>
+            <button id="logoutBtn" class="icon-btn" title="Выйти">🚪</button>
         </div>
 
-        <div class="controls-row" style="margin-top:8px;">
-            <input id="room" placeholder="Введите название чата..." style="margin: 0;">
-            <button id="connect" type="button">Войти в чат</button>
+        <div class="sidebar-search">
+            <input id="userSearch" placeholder="Поиск людей или комнат..." oninput="searchUsers()">
         </div>
-        
-        <div id="messages" style="margin-top:10px; min-height:150px; border: 1px solid #444; padding:8px; overflow:none; background-color: #1a1a1a;"></div>
 
-        <div class="cont" style="width:100%;">
-        <div class="row" style="width:100%;">
-        <textarea id="text" rows="3" placeholder="Напишите сообщение..." style="margin-top:8px; resize:none; align-items:flex-start; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;"></textarea>
-  
-        <div class="controls-row2" style="display: flex; margin-left: 10px; padding: 0 0;">
-            <input type="file" id="file" style="display:none">
-            <div class="row2" style="display: grid; grid-template-columns: 40px 40px; grid-template-rows: 40px 40px;  align-items: center; justify-items: center; margin-top: 11px;">
-            <!-- Скрепка файл -->
-            <button id="attachBtn" type="button" aria-label="Прикрепить файл" title="Прикрепить файл">
-            <img src="https://s.fotora.ru/1d29182e85c24e3e.png" width="20" height="20"></button>
-            <!-- Голос -->
-            <button id="voiceBtn" type="button" title="Голосовое сообщение">
-            <img src="https://s.fotora.ru/cb89d6c22bf9d062.png" width="20" height="20"></button>
-            </button>
-            <!-- Видео-кружок -->
-            <button id="videoBtn" type="button" title="Кружок">
-             <img src="https://s.fotora.ru/816fd3692efab9c4.png" width="20" height="20"></button>
-            </button>
-            <!-- Отправить -->
-            <button id="send" type="button" title="Отправить">
-            <img src="https://s.fotora.ru/3a00c1be9ec0baa7.png" width="20" height="20"></button>
+        <div id="chatsList" class="chats-list">
+            <!-- Сюда JS будет рендерить список последних переписок -->
+            <div class="chat-item-hint">Начните поиск, чтобы найти собеседника</div>
+        </div>
+    </div>
+
+    <!-- ПРАВАЯ ПАНЕЛЬ (ОКНО ЧАТА) -->
+    <div class="chat-main">
+        <!-- Шапка чата (с кем общаемся) -->
+        <div id="chatHeader" class="chat-header" style="display: none;">
+            <div class="chat-info">
+                <img id="chatAvatar" src="https://s.fotora.ru/1.png" class="avatar-sm">
+                <div class="chat-title-container">
+                    <div id="chatTitle" style="font-weight: bold;">Выберите чат</div>
+                    <div id="chatStatus" style="font-size: 0.8em; color: #888;">online</div>
+                </div>
             </div>
         </div>
-        </div>
-        <!-- Отображение имени выбранного файла (опционально) -->
-            <span id="file-name" style="font-size: 1em; color: #c7c7c7; "></span>
+
+        <!-- Сообщения -->
+        <div id="messages" class="messages-container">
+             <div style="text-align: center; color: #555; margin-top: 20%;">Выберите контакт слева, чтобы начать общение</div>
         </div>
 
+        <!-- Индикатор загрузки файла -->
+        <div id="chat-info" style="padding: 0 15px; font-size: 0.85em;"></div>
+
+        <!-- Поле ввода (скрыто, пока не выбран чат) -->
+        <div id="inputArea" class="input-area" style="display: none;">
+            <div class="row" style="width:100%; align-items: flex-end;">
+                <textarea id="text" rows="1" placeholder="Напишите сообщение..." oninput="autoResize(this)"></textarea>
+                
+                <div class="controls-row2">
+                    <input type="file" id="file" style="display:none">
+                    <div class="button-grid">
+                        <!-- Скрепка -->
+                        <button id="attachBtn" type="button" title="Файл">
+                                                        <img src="https://s.fotora.ru/1d29182e85c24e3e.png" width="18">
+                        </button>
+                        <!-- Голос -->
+                        <button id="voiceBtn" type="button" title="Голосовое">
+                            <img src="https://s.fotora.ru/cb89d6c22bf9d062.png" width="18">
+                        </button>
+                        <!-- Видео -->
+                        <button id="videoBtn" type="button" title="Кружок">
+                            <img src="https://s.fotora.ru/816fd3692efab9c4.png" width="18">
+                        </button>
+                        <!-- Отправить -->
+                        <button id="send" type="button" title="Отправить">
+                            <img src="https://s.fotora.ru/3a00c1be9ec0baa7.png" width="18">
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div id="file-name" style="font-size: 0.8em; color: #00afff; margin-left: 10px;"></div>
+        </div>
+    </div>
         <!-- Блок ошибок/информации чата (показывается внизу чата) -->
         <div id="chat-info" aria-live="polite" style="margin-top:8px;"></div>
     </div>
@@ -527,6 +598,11 @@ function showChatInfo(msg = '', kind = 'info') {
 } 
 
 showOnlyAuth();
+
+function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+}
 
 function appendMessage(htmlContent, side = 'other') {
     const messagesEl = document.getElementById('messages');
