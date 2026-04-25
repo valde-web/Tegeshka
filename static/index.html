@@ -516,7 +516,7 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
             </div>
 
             <!-- ТВОЙ БЛОК СООБЩЕНИЙ -->
-                        <div id="messages" style="flex-grow: 1; padding: 15px; overflow-y: auto; background-color: #1a1a1a;"></div>
+            <div id="messages" style="flex-grow: 1; padding: 15px; overflow-y: auto; background-color: #1a1a1a;"></div>
 
             <!-- ТВОЙ БЛОК ВВОДА (Все ID сохранены) -->
             <div class="cont" style="padding: 15px; background: #17212b;">
@@ -541,7 +541,7 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
 </div>
 
 <!-- Твой видеопревью -->
-<video id="videoPreview" style="display:none; position:fixed; bottom:80px; right:20px; width:150px; height:150px; border-radius:50%; object-fit:cover; border:2px solid #00afff; z-index:1000; background:#000;" autoplay muted></video>
+<video id="videoPreview" style="display:none; position:fixed; bottom:250px; right:100px; width:150px; height:150px; border-radius:50%; object-fit:cover; border:2px solid #00afff; z-index:1000; background:#000;" autoplay muted></video>
 
 <script>
 const firebaseConfig = {
@@ -1283,6 +1283,145 @@ window.toggleVideo = function(container) {
     }
 };
 });
+// --- 1. ПРОВЕРКА ВХОДА ПРИ ЗАГРУЗКЕ СТРАНИЦЫ ---
+window.addEventListener('DOMContentLoaded', () => {
+    const token = localStorage.getItem('accesstoken');
+    const authLayout = document.getElementById('auth-layout');
+    const mainLayout = document.getElementById('main-layout');
+
+    if (token && token !== 'undefined') {
+        // Если токен есть — показываем чат
+        if (authLayout) authLayout.style.display = 'none';
+        if (mainLayout) mainLayout.style.display = 'block';
+        
+        const myName = localStorage.getItem('myDisplayName');
+        const nameDisp = document.getElementById('myDisplayNameDisplay');
+        if (nameDisp && myName) nameDisp.innerText = myName;
+
+        // Если у тебя есть функция инициализации WebSocket, вызови её здесь
+        // connectToWebSocket("general"); 
+    } else {
+        // Если токена нет — показываем вход
+        if (authLayout) authLayout.style.display = 'block';
+        if (mainLayout) mainLayout.style.display = 'none';
+    }
+
+// --- 1. ПРОВЕРКА ВХОДА ПРИ ЗАГРУЗКЕ СТРАНИЦЫ ---
+window.addEventListener('DOMContentLoaded', () => {
+    const token = localStorage.getItem('accesstoken');
+    const authLayout = document.getElementById('auth-layout');
+    const mainLayout = document.getElementById('main-layout');
+
+    if (token && token !== 'undefined') {
+        // Если токен есть — показываем чат
+        if (authLayout) authLayout.style.display = 'none';
+        if (mainLayout) mainLayout.style.display = 'block';
+        
+        const myName = localStorage.getItem('myDisplayName');
+        const nameDisp = document.getElementById('myDisplayNameDisplay');
+        if (nameDisp && myName) nameDisp.innerText = myName;
+
+        // Если у тебя есть функция инициализации WebSocket, вызови её здесь
+        // connectToWebSocket("general"); 
+    } else {
+        // Если токена нет — показываем вход
+        if (authLayout) authLayout.style.display = 'block';
+        if (mainLayout) mainLayout.style.display = 'none';
+    }
+});
+});
+// --- 1. ПРОВЕРКА ВХОДА ПРИ ЗАГРУЗКЕ СТРАНИЦЫ ---
+window.addEventListener('DOMContentLoaded', () => {
+    const token = localStorage.getItem('accesstoken');
+    const authLayout = document.getElementById('auth-layout');
+    const mainLayout = document.getElementById('main-layout');
+
+    if (token && token !== 'undefined') {
+        // Если токен есть — показываем чат
+        if (authLayout) authLayout.style.display = 'none';
+        if (mainLayout) mainLayout.style.display = 'block';
+        
+        const myName = localStorage.getItem('myDisplayName');
+        const nameDisp = document.getElementById('myDisplayNameDisplay');
+        if (nameDisp && myName) nameDisp.innerText = myName;
+
+        // Если у тебя есть функция инициализации WebSocket, вызови её здесь
+        // connectToWebSocket("general"); 
+    } else {
+        // Если токена нет — показываем вход
+        if (authLayout) authLayout.style.display = 'block';
+        if (mainLayout) mainLayout.style.display = 'none';
+    }
+});
+
+// --- 2. ГЛОБАЛЬНАЯ ФУНКЦИЯ ПОИСКА ---
+window.searchUsers = async function() {
+    const input = document.getElementById('userSearchInput');
+    const query = input ? input.value.trim() : '';
+    const list = document.getElementById('chatsList');
+
+    if (query.length < 1) {
+        if (list) list.innerHTML = '<div style="padding:10px; color:#555;">Введите имя...</div>';
+        return;
+    }
+
+    try {
+        // ОБРАТИ ВНИМАНИЕ: Тут используются обратные кавычки ` `
+        const res = await fetch(`/users/search?query=${encodeURIComponent(query)}`, {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('accesstoken') }
+        });
+        
+        if (!res.ok) throw new Error('Ошибка поиска');
+        
+        const users = await res.json();
+        if (list) {
+            list.innerHTML = ''; 
+            if (users.length === 0) {
+                list.innerHTML = '<div style="padding:10px; color:#555;">Никто не найден</div>';
+            }
+            users.forEach(u => {
+                const div = document.createElement('div');
+                div.className = 'chat-item';
+                div.style = "padding:12px; border-bottom:1px solid #111; cursor:pointer;";
+                
+                // ТУТ ТОЖЕ ОБРАТНЫЕ КАВЫЧКИ ` `
+                div.innerHTML = `<strong>${u.display_name || u.username}</strong><br><small style="color:#888;">@${u.username}</small>`;
+                
+                div.onclick = () => window.selectUser(u.id, u.display_name || u.username);
+                list.appendChild(div);
+            });
+        }
+    } catch (err) {
+        console.error("Search error:", err);
+    }
+};
+
+window.selectUser = function(targetId, targetName) {
+    const myId = localStorage.getItem('myId');
+    if (!myId) {
+        alert("Ошибка: ваш ID не найден. Перезайдите.");
+        return;
+    }
+
+    // И ТУТ ОБРАТНЫЕ КАВЫЧКИ ` ` для формирования ID комнаты
+    const room = Number(myId) < Number(targetId) 
+        ? `p2p_${myId}_${targetId}` 
+        : `p2p_${targetId}_${myId}`;
+
+    const roomInput = document.getElementById('room');
+    if (roomInput) roomInput.value = room;
+
+    const chatTitle = document.getElementById('currentChatName');
+    if (chatTitle) chatTitle.innerText = "Чат с: " + targetName;
+
+    const msgDiv = document.getElementById('messages');
+    if (msgDiv) msgDiv.innerHTML = '<div style="text-align:center; color:#555;">Загрузка истории...</div>';
+
+    // Подключаемся к новой комнате (вызывает твою функцию WS)
+    if (typeof connectToWebSocket === 'function') {
+        connectToWebSocket(room); 
+    }
+};
 </script>
 </body>
 </html>
