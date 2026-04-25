@@ -1041,9 +1041,23 @@ async function sendMessage() {
     const fileEl = document.getElementById('file');
     const fileNameEl = document.getElementById('file-name');
     const sendBtn = document.getElementById('send');
-    const roomInput = document.getElementById('room');
+    // const roomInput = document.getElementById('room');
+    // const room = roomInput ? (roomInput.value || '1') : '1';
 
-    const room = roomInput ? (roomInput.value || '1') : '1';
+    let currentRoomName = '1'; // По умолчанию для общей комнаты
+    if (ws && ws.url) {
+        // Парсим room_id из URL WebSocket'а
+        const urlParts = ws.url.split('/');
+        // URL вида wss://host/ws/p2p_X_Y?token=...
+        // Room_id будет частью urlParts[urlParts.length - 1] до знака '?'
+        currentRoomName = urlParts[urlParts.length - 1].split('?')[0];
+        currentRoomName = decodeURIComponent(currentRoomName); // Декодируем, если есть спецсимволы
+    } else {
+        // Fallback, если WS еще не инициализирован (хотя по идее сюда не должны попасть)
+        const roomInput = document.getElementById('room');
+        currentRoomName = roomInput ? (roomInput.value || '1') : '1';
+    }
+
     const text = textEl ? textEl.value.trim() : '';
     let file_url = null;
 
