@@ -213,23 +213,6 @@
             min-height: 1.2em;
         }
 
-        /* Chat styles */
-        #messages {
-            display: flex;
-            font-size: 1.0em;
-            flex-direction: column;
-            height: 350px;
-            overflow-y: auto;
-            border: 1px solid #444;
-            border-radius: var(--border-radius);
-            padding: 10px;
-            background: #252525;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
         .msg {
             background: #3d3d3d;
             padding: 8px 12px;
@@ -936,7 +919,6 @@ window.renderMessage = function(j) {
 };
 
 function connectWS() { 
-    // ВСЕГДА берем свежий токен из памяти при подключении
     tokenValue = localStorage.getItem('accesstoken');
 
     if (!tokenValue || tokenValue === 'null') {
@@ -944,18 +926,24 @@ function connectWS() {
     return;
 }
 
+const roomName = (typeof roomEl !== 'undefined' && roomEl) ? (roomEl.value || '1') : '1';
 const proto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
 const base = proto + '//' + location.host;
-
-const roomName = (typeof roomEl !== 'undefined' && roomEl) ? (roomEl.value || '1') : '1';
 const wsUrl = base + '/ws/' + encodeURIComponent(roomName) + '?token=' + encodeURIComponent(tokenValue);
 
-if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-    showChatInfo('Вы уже в чате, чтобы войти в другой, выйдите из аккаунта и зайдите заново', 'info');
-    return;
-}
+if (ws) {
+        if (ws.url.includes('/ws/' + encodeURIComponent(roomName))) {
+            console.log("Уже подключены к этой комнате");
+            return; 
+        } else {
+            console.log("Переключение комнаты: закрываем старый сокет");
+            ws.close(); // Закрываем старое соединение
+            // Не выходим, а идем дальше создавать новое
+        }
+    }
 
 try {
+    console.log("Подключение к:", wsUrl);
     ws = new WebSocket(wsUrl);
 } catch (err) {
     console.error('WS init error', err);
@@ -963,17 +951,18 @@ try {
     return;
 }
 
-ws.addEventListener('open', () => {
-    appendMessage('Вы вошли в чат', 'system');
-});
+ws.onopen = () => {
+        // Очищаем экран при входе в новую комнату
+        const msgDiv = document.getElementById('messages');
+        if (msgDiv) msgDiv.innerHTML = ''; 
+        appendMessage('Вы вошли в чат с' + roomName, 'system');
+    };
 
 ws.onmessage = (ev) => {
     // Проверяем, пришел ли JSON (сообщение) или обычный текст (системное)
     if (ev.data.startsWith('{')) {
         try {
             const j = JSON.parse(ev.data);
-            
-            // Логика звука: если отправитель не я
             const myId = localStorage.getItem('myId');
             if (String(j.sender_id) !== String(myId)) {
                 const audioNotify = new Audio('/static/zvukTG.mp3');
@@ -997,16 +986,18 @@ ws.onmessage = (ev) => {
     }
 };
 
-    ws.addEventListener('close', () => {
-        appendMessage('Соединение разорвано', 'system');
-        showChatInfo('Соединение разорвано', 'error');
-        ws = null;
-    });
+    ws.onclose = (ev) => {
+        // Если мы сами закрыли его для переключения (код 1000 или 1005), не спамим ошибками
+        if (ev.code !== 1000 && ev.code !== 1001) {
+            appendMessage('Соединение разорвано', 'system');
+            ws = null;
+        }
+    };
 
-    ws.addEventListener('error', (e) => {
+    ws.onerror = (e) => {
         console.error('WS error', e);
-        showChatInfo('Ошибка WebSocket', 'error');
-    });
+    };
+}
 
 // ИСПРАВЛЕННЫЙ ВЫХОД
 if (logoutBtn) { 
@@ -1031,14 +1022,17 @@ if (logoutBtn) {
         if (passwordEl) passwordEl.value = '';
     }); 
 }
-}
+
 
 async function sendMessage() { 
     const tokenValue = localStorage.getItem('accesstoken');
     
-    // 1. Проверка соединения
     if (!ws || ws.readyState !== WebSocket.OPEN) {
         showChatInfo('Сначала подключитесь к чату!', 'error');
+        // Добавим более специфичное сообщение, если сокет подключается
+        if (ws && ws.readyState === WebSocket.CONNECTING) {
+            showChatInfo('Соединение устанавливается, подождите...', 'info');
+        }
         return;
     }
 
@@ -1122,7 +1116,6 @@ async function sendMessage() {
         clearFileSelection();
     }
 }
-
 
 const textInput = document.getElementById('text'); // Поле ввода сообщения
 
