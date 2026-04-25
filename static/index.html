@@ -358,99 +358,82 @@ textarea { flex-grow: 1; background: transparent; border: none; color: white; re
     </style>
 </head>
 <body>
-
-<div class="container">
-    <!-- Блок авторизации -->
+    <!-- Контейнер Авторизации (Твои ID сохранены) -->
+<div id="auth-layout" class="container">
     <div class="card" id="auth-section">
         <h3>Вход / Регистрация</h3>
         <input id="username" placeholder="Логин">
         <input id="password" type="password" placeholder="Пароль">
-        <input id="display_name" name="display_name" placeholder="Введите имя, которое будет видно всем" style="display:none; margin-top:8px;">
+        <input id="display_name" placeholder="Введите имя..." style="display:none; margin-top:8px;">
         <div style="display: flex; gap: 8px; margin-top: 8px;">
             <button id="regBtn" type="button">Создать аккаунт</button>
             <button id="loginBtn" type="button" style="background: #555;">Войти</button>
         </div>
-        <!-- Этот блок оставляем для ошибок/информации авторизации -->
         <div id="info" style="margin-top: 8px;"></div>
-    </div>
-
-    <div class="messenger-wrapper" id="main-layout" style="display: none;">
-    <!-- ЛЕВАЯ ПАНЕЛЬ (САЙДБАР) -->
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <div class="my-profile">
-                <img id="myAvatar" src="https://s.fotora.ru/1.png" class="avatar-sm">
-                <span id="myName" style="font-weight: bold;">Загрузка...</span>
-            </div>
-            <button id="logoutBtn" class="icon-btn" title="Выйти">🚪</button>
-        </div>
-
-        <div class="sidebar-search">
-            <input id="userSearch" placeholder="Поиск людей или комнат..." oninput="searchUsers()">
-        </div>
-
-        <div id="chatsList" class="chats-list">
-            <!-- Сюда JS будет рендерить список последних переписок -->
-            <div class="chat-item-hint">Начните поиск, чтобы найти собеседника</div>
-        </div>
-    </div>
-
-    <!-- ПРАВАЯ ПАНЕЛЬ (ОКНО ЧАТА) -->
-    <div class="chat-main">
-        <!-- Шапка чата (с кем общаемся) -->
-        <div id="chatHeader" class="chat-header" style="display: none;">
-            <div class="chat-info">
-                <img id="chatAvatar" src="https://s.fotora.ru/1.png" class="avatar-sm">
-                <div class="chat-title-container">
-                    <div id="chatTitle" style="font-weight: bold;">Выберите чат</div>
-                    <div id="chatStatus" style="font-size: 0.8em; color: #888;">online</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Сообщения -->
-        <div id="messages" class="messages-container">
-             <div style="text-align: center; color: #555; margin-top: 20%;">Выберите контакт слева, чтобы начать общение</div>
-        </div>
-
-        <!-- Индикатор загрузки файла -->
-        <div id="chat-info" style="padding: 0 15px; font-size: 0.85em;"></div>
-
-        <!-- Поле ввода (скрыто, пока не выбран чат) -->
-        <div id="inputArea" class="input-area" style="display: none;">
-            <div class="row" style="width:100%; align-items: flex-end;">
-                <textarea id="text" rows="1" placeholder="Напишите сообщение..." oninput="autoResize(this)"></textarea>
-                
-                <div class="controls-row2">
-                    <input type="file" id="file" style="display:none">
-                    <div class="button-grid">
-                        <!-- Скрепка -->
-                        <button id="attachBtn" type="button" title="Файл">
-                                                        <img src="https://s.fotora.ru/1d29182e85c24e3e.png" width="18">
-                        </button>
-                        <!-- Голос -->
-                        <button id="voiceBtn" type="button" title="Голосовое">
-                            <img src="https://s.fotora.ru/cb89d6c22bf9d062.png" width="18">
-                        </button>
-                        <!-- Видео -->
-                        <button id="videoBtn" type="button" title="Кружок">
-                            <img src="https://s.fotora.ru/816fd3692efab9c4.png" width="18">
-                        </button>
-                        <!-- Отправить -->
-                        <button id="send" type="button" title="Отправить">
-                            <img src="https://s.fotora.ru/3a00c1be9ec0baa7.png" width="18">
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div id="file-name" style="font-size: 0.8em; color: #00afff; margin-left: 10px;"></div>
-        </div>
-    </div>
-        <!-- Блок ошибок/информации чата (показывается внизу чата) -->
-        <div id="chat-info" aria-live="polite" style="margin-top:8px;"></div>
     </div>
 </div>
 
+<!-- Основной Мессенджер (Скрыт до входа) -->
+<div id="main-layout" style="display: none; height: 100vh; width: 100vw;">
+    <div style="display: flex; height: 100%; width: 100%;">
+        
+        <!-- ЛЕВАЯ ПАНЕЛЬ (САЙДБАР) -->
+        <div class="sidebar" style="width: 300px; background: #17212b; border-right: 1px solid #111; display: flex; flex-direction: column;">
+            <div style="padding: 15px; border-bottom: 1px solid #111; display: flex; justify-content: space-between; align-items: center;">
+                <strong id="myDisplayNameDisplay">Профиль</strong>
+                <button id="logoutBtn" style="background:none; border:none; color:#888; cursor:pointer;">🚪</button>
+            </div>
+            
+            <!-- Поиск (вместо "Войти в чат") -->
+            <div style="padding: 10px;">
+                <input id="userSearchInput" placeholder="Поиск людей..." oninput="searchUsers()" style="width:100%; background:#242f3d; border:none; padding:10px; border-radius:5px; color:white;">
+            </div>
+
+            <div id="chatsList" style="flex-grow: 1; overflow-y: auto;">
+                <!-- Список чатов -->
+            </div>
+        </div>
+
+        <!-- ПРАВАЯ ПАНЕЛЬ (Твой оригинальный чат) -->
+        <div id="chat-card" style="flex-grow: 1; display: flex; flex-direction: column; background: #0e1621;">
+            
+            <!-- Скрытый инпут для комнаты (нужен для твоего JS) -->
+            <input type="hidden" id="room" value="1">
+
+            <div id="chatHeader" style="padding: 15px; background: #17212b; border-bottom: 1px solid #111;">
+                <span id="currentChatName">Выберите чат слева</span>
+            </div>
+
+            <!-- ТВОЙ БЛОК СООБЩЕНИЙ -->
+                        <div id="messages" style="flex-grow: 1; padding: 15px; overflow-y: auto; background-color: #1a1a1a;"></div>
+
+            <!-- ТВОЙ БЛОК ВВОДА (Все ID сохранены) -->
+            <div class="cont" style="padding: 15px; background: #17212b;">
+                <div class="row" style="display:flex; width:100%; gap: 10px;">
+                    <textarea id="text" rows="3" placeholder="Напишите сообщение..." style="flex-grow:1; resize:none; font-family: sans-serif;"></textarea>
+              
+                    <div class="controls-row2" style="display: flex;">
+                        <input type="file" id="file" style="display:none">
+                        <div class="row2" style="display: grid; grid-template-columns: 40px 40px; grid-template-rows: 40px 40px; gap: 5px;">
+                            <button id="attachBtn" type="button" title="Прикрепить файл">
+                                <img src="https://s.fotora.ru/1d29182e85c24e3e.png" width="20"></button>
+                            <button id="voiceBtn" type="button" title="Голосовое сообщение">
+                                <img src="https://s.fotora.ru/cb89d6c22bf9d062.png" width="20"></button>
+                            <button id="videoBtn" type="button" title="Кружок">
+                                <img src="https://s.fotora.ru/816fd3692efab9c4.png" width="20"></button>
+                            <button id="send" type="button" title="Отправить">
+                                <img src="https://s.fotora.ru/3a00c1be9ec0baa7.png" width="20"></button>
+                        </div>
+                    </div>
+                </div>
+                <span id="file-name" style="font-size: 0.8em; color: #ccc;"></span>
+                <div id="chat-info" style="margin-top:5px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Твой видеопревью -->
 <video id="videoPreview" style="display:none; position:fixed; bottom:80px; right:20px; width:150px; height:150px; border-radius:50%; object-fit:cover; border:2px solid #00afff; z-index:1000; background:#000;" autoplay muted></video>
 
 <script>
