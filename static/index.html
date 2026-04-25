@@ -715,21 +715,50 @@ function autoResize(el) {
        });
    }
 
-   function selectUser(targetId, name) {
-       const myId = localStorage.getItem('myId');
-       // Создаем уникальный ID комнаты для двоих
-       const room = myId < targetId ? `p2p_${myId}_${targetId}` : `p2p_${targetId}_${myId}`;
+function selectUser(targetId, name) {
+    const myId = localStorage.getItem('myId');
+    // Создаем уникальный ID комнаты для двоих
+    const room = myId < targetId ? `p2p_${myId}_${targetId}` : `p2p_${targetId}_${myId}`;
        
-       document.getElementById('room').value = room; // Твой JS подхватит это значение
-       document.getElementById('currentChatName').innerText = name;
-       document.getElementById('messages').innerHTML = ''; // Очистка старого чата
+    document.getElementById('room').value = room; // Твой JS подхватит это значение
+    document.getElementById('currentChatName').innerText = name;
+    document.getElementById('messages').innerHTML = ''; // Очистка старого чата
 
-       // Если у тебя есть функция подключения к WebSocket, вызывай её здесь
-       connectToWebSocket(room); 
+    connectToWebSocket(room); 
        
-       // Загрузка истории (если реализовал эндпоинт)
-       loadHistory(room);
-   }
+    loadHistory(room);
+}
+
+window.loadHistory = async function(room) {
+    const msgDiv = document.getElementById('messages');
+    try {
+        const res = await fetch(`/messages/${room}`, {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('accesstoken') }
+        });
+        
+        if (!res.ok) throw new Error("Не удалось загрузить историю");
+        
+        const messages = await res.json();
+        msgDiv.innerHTML = ''; // Очищаем текст "Загрузка истории..."
+
+        if (messages.length === 0) {
+            msgDiv.innerHTML = '<div style="text-align:center; color:#555; padding:20px;">Здесь пока нет сообщений...</div>';
+            return;
+        }
+
+        // Проходим по каждому сообщению из базы и рисуем его
+        messages.forEach(msg => {
+            window.renderMessage(msg);
+        });
+
+        // Скроллим в самый низ
+        msgDiv.scrollTop = msgDiv.scrollHeight;
+
+    } catch (err) {
+        console.error("Ошибка загрузки истории:", err);
+        msgDiv.innerHTML = '<div style="text-align:center; color:red; padding:20px;">Ошибка загрузки истории</div>';
+    }
+};
 
 function appendMessage(htmlContent, side = 'other') {
     const messagesEl = document.getElementById('messages');
@@ -850,6 +879,62 @@ if (getComputedStyle(displayNameEl).display === 'none' || displayNameEl.value.tr
 };
 if (loginBtn) loginBtn.onclick = (e) => { e.preventDefault(); doAuth('/login'); };
 
+// Выносим отрисовку в отдельную функцию
+window.renderMessage = function(j) {
+    try {
+        const myId = localStorage.getItem('myId');
+        const isMe = String(j.sender_id) === String(myId);
+        const side = isMe ? 'my' : 'other';
+        const name = j.display_name || 'Аноним';
+        
+        let messageText = j.text || '';
+        let fileHtml = '';
+
+        // Определение типа контента (твоя логика)
+        const isVoice = messageText === '__voice__';
+        const isVideo = messageText === '__video__';
+
+        if (j.file_url) {
+            const url = j.file_url.toLowerCase();
+            const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+
+            if (isVoice) {
+                messageText = 'Голосовое сообщение';
+                fileHtml = `
+                <div class="voice-player">
+                    <button class="play-btn" type="button" onclick="toggleAudio(this)">▶</button>
+                    <audio src="${j.file_url}" preload="metadata"></audio>
+                    <div class="voice-progress"><div class="voice-progress-fill"></div></div>
+                    <small class="duration" style="color:#aaa; font-size:10px; margin-left:5px;">0:00</small>
+                </div>`;
+            } else if (isVideo) {
+                messageText = 'Видеосообщение';
+                fileHtml = `
+                <div class="video-circle-container" onclick="toggleVideo(this)">
+                    <video class="video-circle-node" src="${j.file_url}" playsinline preload="metadata"></video>
+                    <svg class="video-progress-svg">
+                        <circle class="video-progress-circle" cx="105" cy="105" r="100"></circle>
+                    </svg>
+                </div>`;
+            } else if (isImage) {
+                fileHtml = `<img src="${j.file_url}" style="max-width:100%; border-radius:8px; margin-top:8px; cursor:pointer;" onclick="window.open(this.src)">`;
+            } else {
+                fileHtml = `<a href="${j.file_url}" target="_blank" style="color:#00afff; text-decoration:none; display:block; margin-top:8px;">📁 ${j.file_url.split('/').pop()}</a>`;
+            }
+        }
+
+        const html = `
+            <span class="msg-name">${name}</span>
+            ${messageText ? `<div class="msg-text" style="white-space: pre-wrap;">${messageText}</div>` : ''}
+            ${fileHtml}
+        `;
+
+        appendMessage(html, side);
+    } catch (e) {
+        console.error("Ошибка отрисовки сообщения:", e);
+    }
+};
+
 function connectWS() { 
     // ВСЕГДА берем свежий токен из памяти при подключении
     tokenValue = localStorage.getItem('accesstoken');
@@ -883,77 +968,27 @@ ws.addEventListener('open', () => {
 });
 
 ws.onmessage = (ev) => {
-    try {
-        const j = JSON.parse(ev.data);
-        
-        // Проверяем, что это сообщение
-        if (j.sender_id || j.text || j.file_url) {
-            const myId = localStorage.getItem('myId');
-            const isMe = String(j.sender_id) === String(myId);
-            if (!isMe) {
-                // Используй свой путь к файлу или этот стандартный звук
-                const audioNotify = new Audio('/static/zvukTG.mp3');
-                audioNotify.volume = 0.5; // Громкость 50%
-                audioNotify.play().catch(e => console.log("Звук заблокирован браузером до первого клика"));
-            }
-            const side = isMe ? 'my' : 'other';
-            const name = j.display_name || 'Аноним';
+    // Проверяем, пришел ли JSON (сообщение) или обычный текст (системное)
+    if (ev.data.startsWith('{')) {
+        try {
+            const j = JSON.parse(ev.data);
             
-            let messageText = j.text || '';
-            let fileHtml = '';
-
-            // Определение типа контента
-            const isVoice = messageText === '__voice__';
-            const isVideo = messageText === '__video__';
-
-            if (j.file_url) {
-                const url = j.file_url.toLowerCase();
-                const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
-
-                if (isVoice) {
-                    messageText = 'Голосовое сообщение';
-                    fileHtml = `
-                    <div class="voice-player">
-                        <button class="play-btn" type="button" onclick="toggleAudio(this)">▶</button>
-                        <!-- Аудио тег уже здесь -->
-                        <audio src="${j.file_url}" preload="metadata"></audio>
-                        <div class="voice-progress"><div class="voice-progress-fill"></div></div>
-                        <small class="duration" style="color:#aaa; font-size:10px; margin-left:5px;">0:00</small>
-                    </div>`;
-                } else if (isVideo) {
-                    messageText = 'Видеосообщение';
-                    fileHtml = `
-                    <div class="video-circle-container" onclick="toggleVideo(this)">
-                        <video class="video-circle-node" src="${j.file_url}" playsinline preload="metadata"></video>
-                        <svg class="video-progress-svg">
-                            <circle class="video-progress-circle" cx="105" cy="105" r="100"></circle>
-                        </svg>
-                    </div>`;
-                } else if (isImage) {
-                    fileHtml = `<img src="${j.file_url}" style="max-width:100%; border-radius:8px; margin-top:8px; cursor:pointer;" onclick="window.open(this.src)">`;
-                } 
-                else {
-                    fileHtml = `<a href="${j.file_url}" target="_blank" style="color:#00afff; text-decoration:none; display:block; margin-top:8px;">📁 ${j.file_url.split('/').pop()}</a>`;
-                }
+            // Логика звука: если отправитель не я
+            const myId = localStorage.getItem('myId');
+            if (String(j.sender_id) !== String(myId)) {
+                const audioNotify = new Audio('/static/zvukTG.mp3');
+                audioNotify.volume = 0.5;
+                audioNotify.play().catch(e => console.log("Звук заблокирован"));
             }
 
-            // Сборка сообщения
-            const html = `
-                <span class="msg-name">${name}</span>
-                ${messageText ? `<div class="msg-text" style="white-space: pre-wrap;">${messageText}</div>` : ''}
-                ${fileHtml}
-            `;
+            // Вызываем общую отрисовку
+            window.renderMessage(j);
 
-            // Вызываем функцию добавления в чат
-            appendMessage(html, side);
-            return;
+        } catch (e) {
+            console.error("Ошибка парсинга JSON:", e);
         }
-    } catch (e) {
-        console.error("Ошибка при приеме сообщения через WS:", e);
-    }
-
-    // Системные сообщения (вход/выход)
-    if (!ev.data.startsWith('{')) {
+    } else {
+        // Системные сообщения (вход/выход)
         const sysMsg = document.createElement('div');
         sysMsg.style.cssText = "text-align:center; color:#888; font-size: 0.9em; margin:10px 0; width:100%;";
         sysMsg.textContent = ev.data;
@@ -1211,7 +1246,7 @@ async function uploadAndSendMedia(blob, filename, type) {
         // ВАЖНО: Мы кладем тип сообщения в поле text!
         // Сервер это поле точно не удалит.
         ws.send(JSON.stringify({ 
-            text: `__${type}__`, // Получится "__voice__" или "__video__"
+            text: `__${type}__`, 
             file_url: file_url, 
             room: room 
         }));
@@ -1305,53 +1340,6 @@ window.addEventListener('DOMContentLoaded', () => {
         if (authLayout) authLayout.style.display = 'block';
         if (mainLayout) mainLayout.style.display = 'none';
     }
-
-// --- 1. ПРОВЕРКА ВХОДА ПРИ ЗАГРУЗКЕ СТРАНИЦЫ ---
-window.addEventListener('DOMContentLoaded', () => {
-    const token = localStorage.getItem('accesstoken');
-    const authLayout = document.getElementById('auth-layout');
-    const mainLayout = document.getElementById('main-layout');
-
-    if (token && token !== 'undefined') {
-        // Если токен есть — показываем чат
-        if (authLayout) authLayout.style.display = 'none';
-        if (mainLayout) mainLayout.style.display = 'block';
-        
-        const myName = localStorage.getItem('myDisplayName');
-        const nameDisp = document.getElementById('myDisplayNameDisplay');
-        if (nameDisp && myName) nameDisp.innerText = myName;
-
-        // Если у тебя есть функция инициализации WebSocket, вызови её здесь
-        // connectToWebSocket("general"); 
-    } else {
-        // Если токена нет — показываем вход
-        if (authLayout) authLayout.style.display = 'block';
-        if (mainLayout) mainLayout.style.display = 'none';
-    }
-});
-});
-// --- 1. ПРОВЕРКА ВХОДА ПРИ ЗАГРУЗКЕ СТРАНИЦЫ ---
-window.addEventListener('DOMContentLoaded', () => {
-    const token = localStorage.getItem('accesstoken');
-    const authLayout = document.getElementById('auth-layout');
-    const mainLayout = document.getElementById('main-layout');
-
-    if (token && token !== 'undefined') {
-        // Если токен есть — показываем чат
-        if (authLayout) authLayout.style.display = 'none';
-        if (mainLayout) mainLayout.style.display = 'block';
-        
-        const myName = localStorage.getItem('myDisplayName');
-        const nameDisp = document.getElementById('myDisplayNameDisplay');
-        if (nameDisp && myName) nameDisp.innerText = myName;
-
-        // Если у тебя есть функция инициализации WebSocket, вызови её здесь
-        // connectToWebSocket("general"); 
-    } else {
-        // Если токена нет — показываем вход
-        if (authLayout) authLayout.style.display = 'block';
-        if (mainLayout) mainLayout.style.display = 'none';
-    }
 });
 
 // --- 2. ГЛОБАЛЬНАЯ ФУНКЦИЯ ПОИСКА ---
@@ -1398,10 +1386,7 @@ window.searchUsers = async function() {
 
 window.selectUser = function(targetId, targetName) {
     const myId = localStorage.getItem('myId');
-    if (!myId) {
-        alert("Ошибка: ваш ID не найден. Перезайдите.");
-        return;
-    }
+    if (!myId) return alert("Ошибка: авторизуйтесь заново");
 
     // И ТУТ ОБРАТНЫЕ КАВЫЧКИ ` ` для формирования ID комнаты
     const room = Number(myId) < Number(targetId) 
@@ -1420,6 +1405,9 @@ window.selectUser = function(targetId, targetName) {
     // Подключаемся к новой комнате (вызывает твою функцию WS)
     if (typeof connectToWebSocket === 'function') {
         connectToWebSocket(room); 
+    }
+    if (typeof loadHistory === 'function') {
+        loadHistory(room);
     }
 };
 </script>

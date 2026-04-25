@@ -299,7 +299,7 @@ def login(
     }
 
 @app.get("/messages/{room}")
-async def get_messages(room: str, limit: int = 50, offset: int = 0, token: str = Depends(oauth2_scheme)):
+async def get_messages(room: str, limit: int = 5000000, offset: int = 0, token: str = Depends(oauth2_scheme)):
     # Проверка токена...
     with Session(engine) as s:
         statement = (
@@ -309,7 +309,7 @@ async def get_messages(room: str, limit: int = 50, offset: int = 0, token: str =
             .limit(limit)
             .offset(offset)
         )
-        messages = s.exec(statement).all()
+        messages = s.execute(statement).scalars().all()
         return messages[::-1] # Возвращаем в хронологическом порядке
     
 @app.get("/users/search")
