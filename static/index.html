@@ -565,30 +565,31 @@ if (typeof firebase !== 'undefined') {
 
 async function initPush() {
     try {
-        if (!messaging) {
-            console.error("Messaging не инициализирован.");
-            return;
-        }
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-            console.log('Разрешение на уведомления не дано.');
-            return;
-        }
+        if (!messaging) return;
 
-        const token = await messaging.getToken({ 
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') return;
+
+        const fcmToken = await messaging.getToken({ 
             vapidKey: 'BDOBdZu25D4B4-ecqVfJHhCUBb1kJiSAOKHRLuqBnD6es-twABw0-ILG9K9DU31EteGaRcNI8azBfqEAeJ7yM4Q' 
         });
         
-        if (token) {
-            // Отправляем его на наш сервер
-            const accessToken = localStorage.getItem('accesstoken');
+        const accessToken = localStorage.getItem('accesstoken');
+
+        // ПРОВЕРКА: Если токена нет или он "сломан", не отправляем
+        if (!accessToken || accessToken.split('.').length < 3) {
+            console.warn("initPush: Отмена, accessToken отсутствует или некорректен");
+            return;
+        }
+
+        if (fcmToken) {
             await fetch('/update-fcm-token', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': 'Bearer ' + accessToken
                 },
-                body: JSON.stringify({ fcm_token: token })
+                body: JSON.stringify({ fcm_token: fcmToken })
             });
             console.log("Push-уведомления настроены!");
         }
@@ -752,22 +753,25 @@ function appendMessage(htmlContent, side = 'other') {
 }
 
 async function doAuth(endpoint, isRegister = false) { 
-    // Убедись, что переменные usernameEl и passwordEl доступны здесь
-    const username = usernameEl ? usernameEl.value.trim() : '';
-    const password = passwordEl ? passwordEl.value : '';
-    const displayName = isRegister && displayNameEl ? displayNameEl.value.trim() : '';
+    // Получаем элементы внутри функции, чтобы гарантировать их наличие
+    const usernameEl = document.getElementById('username');
+    const passwordEl = document.getElementById('password');
+    const displayNameEl = document.getElementById('display_name');
     const infoEl = document.getElementById('info');
     
+    const username = usernameEl ? usernameEl.value.trim() : '';
+    const password = passwordEl ? passwordEl.value : '';
+    const displayName = (isRegister && displayNameEl) ? displayNameEl.value.trim() : '';
+    
     if (!username || !password || (isRegister && !displayName)) { 
-        showAuthInfo(isRegister ? 'Введите логин, пароль и отображаемое имя' : 'Введите логин и пароль', 'error');
+        if (infoEl) infoEl.innerText = '❌ Заполните все поля';
         return; 
     }
 
-        // ИСПОЛЬЗУЕМ FormData, так как сервер ждет Form(...)
-        const fd = new FormData();
-        fd.append('username', username);
-        fd.append('password', password);
-        if (isRegister) fd.append('display_name', displayName);
+    const fd = new FormData();
+    fd.append('username', username);
+    fd.append('password', password);
+    if (isRegister) fd.append('display_name', displayName);
 
     try {
         const res = await fetch(endpoint, {
@@ -775,84 +779,62 @@ async function doAuth(endpoint, isRegister = false) {
             body: fd
         });
 
+        // ЧИТАЕМ JSON ТОЛЬКО ОДИН РАЗ
         const data = await res.json().catch(() => null);
 
         if (!res.ok) {
-            const errMsg = data?.detail || 'Ошибка сервера';
+            const errMsg = data?.detail || `Ошибка: ${res.status}`;
             if (infoEl) infoEl.innerText = '❌ ' + errMsg;
             return;
         }
 
-        const contentType = res.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-            data = await res.json();
-        } else {
-            // Если не JSON, пытаемся получить как текст
-            data = await res.text();
-            console.warn("Не-JSON ответ от сервера:", data);
-        }
-
-        if (!res.ok) {
-            // Обрабатываем ошибку
-            let errMsg = `HTTP ${res.status}`;
-            if (data && typeof data === 'object' && data.detail) {
-                errMsg = data.detail;
-            } else if (data && typeof data === 'string') {
-                errMsg = data; // Если ответ просто текст
-            } else if (data) {
-                errMsg = JSON.stringify(data); // Пытаемся показать объект
-            } else {
-                 errMsg = `HTTP ${res.status}`;
-            }
-            if (infoEl) infoEl.innerText = '❌ ' + errMsg;
-            return;
-        }
-
-        // Сервер теперь возвращает ключ 'accesstoken' (мы это правили в main.py)
-        const token = data && (data.accesstoken || data.token || data.access_token);
-        const userId = data && (data.userid || data.user_id || data.id);
-        const dispName = data.display_name || displayName || username;
+        // Извлекаем данные из ответа (проверяем разные варианты ключей)
+        const token = data?.accesstoken || data?.access_token || data?.token;
+        const userId = data?.userid || data?.user_id || data?.id;
+        const dispName = data?.display_name || displayName || username;
         
         if (!token || !userId) {
-            if (infoEl) infoEl.innerText = 'Сервер не прислал токен или ID';
+            if (infoEl) infoEl.innerText = '❌ Сервер не прислал токен или ID';
+            console.error("Data error:", data);
             return;
         }
 
+        // 1. Сохраняем данные в localStorage
         localStorage.setItem('accesstoken', token);
         localStorage.setItem('myId', userId);
         localStorage.setItem('myDisplayName', dispName);
 
-        // 3. Обновляем интерфейс
-        document.getElementById('auth-layout').style.display = 'none';
-        document.getElementById('main-layout').style.display = 'block';
+        // 2. Обновляем интерфейс (скрываем вход, показываем чат)
+        const authLayout = document.getElementById('auth-layout');
+        const mainLayout = document.getElementById('main-layout');
+        
+        if (authLayout) authLayout.style.display = 'none';
+        if (mainLayout) mainLayout.style.display = 'block';
 
+        // Отображаем имя в сайдбаре
         const nameDisplay = document.getElementById('myDisplayNameDisplay');
         if (nameDisplay) nameDisplay.innerText = dispName;
 
-        // 4. Запускаем остальные процессы (теперь токен точно есть в памяти)
-        if (typeof initPush === 'function') initPush();
-        if (typeof validateTokenAndUpdateUI === 'function') validateTokenAndUpdateUI();
-        
         console.log('✅ Авторизация успешна, ID:', userId);
 
-        // Сохраняем токен под именем 'accesstoken' для синхронизации с другими частями кода
-        localStorage.setItem('accesstoken', token);
-        localStorage.setItem('myId', userId);
-        
-        // if (infoEl) infoEl.innerText = '✅ Успешно';
-        if (typeof showOnlyChat === 'function') showOnlyChat(); 
-        if (typeof validateTokenAndUpdateUI === 'function') validateTokenAndUpdateUI();
-        if (typeof showChatInfo === 'function') {
-            // showChatInfo('Вход выполнен. Подключитесь к чату.', 'success');
+        // 3. Запускаем остальные процессы
+        if (typeof validateTokenAndUpdateUI === 'function') {
+            validateTokenAndUpdateUI();
         }
         
-        validateTokenAndUpdateUI();
+        if (typeof initPush === 'function') {
+            // Задержка 500мс, чтобы токен точно успел записаться в память браузера
+            setTimeout(() => initPush(), 500);
+        }
+
+        if (typeof showOnlyChat === 'function') {
+            showOnlyChat();
+        }
 
     } catch (err) {
         console.error('Auth error:', err);
         if (infoEl) infoEl.innerText = '❌ Ошибка соединения с сервером';
     }
-    initPush()
 }
 
 // Привязка кнопок (остается как была)

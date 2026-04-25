@@ -3,20 +3,19 @@ import uuid
 import aiofiles
 import json
 from typing import Optional, List
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, status, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.exc import OperationalError, IntegrityError
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import SQLModel, Field, create_engine, Session, select
 from sqlalchemy import create_engine, Column, Integer, String
-# from sqlalchemy.orm import Session
 import firebase_admin
 from firebase_admin import credentials, initialize_app, messaging as fb_messaging
 import urllib.parse
 from sqlalchemy.exc import IntegrityError, OperationalError
 from passlib.context import CryptContext
-from jose import JWTError, jwt
+from jose import jwt, JWTError, JWSError
 from datetime import datetime, timedelta
 import shutil
 import bcrypt
@@ -64,9 +63,16 @@ class FCMTokenUpdate(SQLModel):
 
 @app.post("/update-fcm-token")
 async def update_fcm_token(data: FCMTokenUpdate, token: str = Depends(oauth2_scheme)):
-    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    uid = int(payload.get("sub"))
+    try:
+        # Пытаемся декодировать токен
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        uid = int(payload.get("sub"))
+    except (JWTError, JWSError, ValueError):
+        # Если токен битый, кидаем 401 вместо падения сервера
+        raise HTTPException(status_code=401, detail="Invalid token")
+
     with Session(engine) as s:
+        # 1. Очищаем этот FCM токен у других (чтобы не дублировались уведомления)
         other_users_statement = select(User).where(User.fcm_token == data.fcm_token, User.id != uid)
         other_users = s.execute(other_users_statement).scalars().all()
         for other in other_users:
@@ -168,8 +174,20 @@ def authenticate_user(username: str, password: str):
         return None
     return user
 
-async def get_current_user(token: str = Depends(lambda: None), authorization: Optional[str] = None):
-    raise NotImplementedError
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Не удалось валидировать токен",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+        return payload # Возвращаем данные токена
+    except (JWTError, JWSError, ValueError):
+        raise credentials_exception
 
 def get_db():
     # Создаем сессию напрямую через engine
