@@ -1408,15 +1408,11 @@ window.selectUser = function(targetId, targetName) {
     if (roomInput) roomInput.value = room;
 
     document.getElementById('currentChatName').innerText = "Чат с: " + targetName;
+    
+    // ВАЖНО: вызываем подключение с передачей новой комнаты
     connectWS(room); 
 
-    const msgDiv = document.getElementById('messages');
-    if (msgDiv) msgDiv.innerHTML = '<div style="text-align:center; color:#555;">Загрузка истории...</div>';
-
-    // Подключаемся к новой комнате (вызывает твою функцию WS)
-    if (typeof connectToWebSocket === 'function') {
-        connectToWebSocket(room); 
-    }
+    // Загружаем историю
     if (typeof loadHistory === 'function') {
         loadHistory(room);
     }
