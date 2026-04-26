@@ -345,26 +345,31 @@ def login(
     }
 
 @app.get("/messages/{room}")
-async def get_messages(room: str, limit: int = 5000000, offset: int = 0, token: str = Depends(oauth2_scheme)):
-    # Проверка токена...
+async def get_messages(room: str, limit: int = 100, offset: int = 0, token: str = Depends(get_current_user)):
     with Session(engine) as s:
+        # Делаем JOIN: выбираем Сообщение и Пользователя одновременно
         statement = (
-            select(Message)
+            select(Message, User)
             .join(User, Message.sender_id == User.id)
             .where(Message.room == room)
-            .order_by(Message.id.desc()) # Сначала новые
+            .order_by(Message.id.desc()) # Сначала берем последние
             .limit(limit)
             .offset(offset)
         )
+        
+        # Выполняем запрос
         results = s.execute(statement).all()
-        messages = []
+        
+        # Формируем список словарей, где в каждом сообщении будет имя
+        messages_with_names = []
         for msg, user in results:
             m_dict = msg.model_dump() # Превращаем объект Message в словарь
             # Добавляем имя из объекта User
             m_dict["display_name"] = user.display_name or user.username
-            messages.append(m_dict)
+            messages_with_names.append(m_dict)
             
-        return messages[::-1]
+        # Возвращаем в правильном хронологическом порядке (старые вверху, новые внизу)
+        return messages_with_names[::-1]
     
 @app.get("/users/search")
 async def search_users(query: str, token: str = Depends(oauth2_scheme)):
