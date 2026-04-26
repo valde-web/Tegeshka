@@ -919,15 +919,18 @@ window.renderMessage = function(j) {
 };
 
 function connectWS(roomNameFromParam = null) { 
-    tokenValue = localStorage.getItem('accesstoken');
+    const tokenValue = localStorage.getItem('accesstoken');
 
     if (!tokenValue || tokenValue === 'null') {
     showChatInfo('Нет токена — войдите в систему', 'error');
     return;
 }
 
-const roomInput = document.getElementById('room');
-const roomName = (typeof roomEl !== 'undefined' && roomEl) ? (roomEl.value || '1') : '1';
+let roomName = roomNameFromParam;
+    if (!roomName) {
+        const roomInput = document.getElementById('room');
+        roomName = roomInput ? (roomInput.value || '1') : '1';
+    }
 const proto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
 const base = proto + '//' + location.host;
 const wsUrl = base + '/ws/' + encodeURIComponent(roomName) + '?token=' + encodeURIComponent(tokenValue);
@@ -972,10 +975,7 @@ ws.onmessage = (ev) => {
                 audioNotify.volume = 0.5;
                 audioNotify.play().catch(e => console.log("Звук заблокирован"));
             }
-
-            // Вызываем общую отрисовку
             window.renderMessage(j);
-
         } catch (e) {
             console.error("Ошибка парсинга JSON:", e);
         }
@@ -1397,7 +1397,10 @@ window.searchUsers = async function() {
 
 window.selectUser = function(targetId, targetName) {
     const myId = localStorage.getItem('myId');
-    if (!myId) return alert("Авторизуйтесь заново");
+    if (!myId) {
+        alert("Ошибка: ID пользователя не найден. Авторизуйтесь заново.");
+        return;
+    }
 
     // И ТУТ ОБРАТНЫЕ КАВЫЧКИ ` ` для формирования ID комнаты
     const room = Number(myId) < Number(targetId) 
@@ -1407,13 +1410,28 @@ window.selectUser = function(targetId, targetName) {
     const roomInput = document.getElementById('room');
     if (roomInput) roomInput.value = room;
 
-    document.getElementById('currentChatName').innerText = "Чат с: " + targetName;
-    
-    // ВАЖНО: вызываем подключение с передачей новой комнаты
-    connectWS(room); 
+    const chatHeader = document.getElementById('currentChatName');
+    if (chatHeader) {
+        chatHeader.innerText = "Чат с: " + targetName;
+    }
 
-    // Загружаем историю
-    if (typeof loadHistory === 'function') {
+    const msgDiv = document.getElementById('messages');
+    if (msgDiv) {
+        msgDiv.innerHTML = '<div style="text-align:center; color:#888; padding:20px;">Подключение к чату...</div>';
+    }
+    
+    if (typeof window.connectWS === 'function') {
+        window.connectWS(room); 
+    } else if (typeof connectWS === 'function') {
+        connectWS(room);
+    } else {
+        console.error("Критическая ошибка: функция connectWS не найдена в коде!");
+    }
+
+    // Загружаем историю (если функция определена)
+    if (typeof window.loadHistory === 'function') {
+        window.loadHistory(room);
+    } else if (typeof loadHistory === 'function') {
         loadHistory(room);
     }
 };
