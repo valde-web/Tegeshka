@@ -345,7 +345,7 @@ def login(
     }
 
 @app.get("/messages/{room}")
-async def get_messages(room: str, limit: int = 100, offset: int = 0, token: str = Depends(get_current_user)):
+async def get_messages(room: str, limit: int = 500000, offset: int = 0, token: str = Depends(get_current_user)):
     with Session(engine) as s:
         # Делаем JOIN: выбираем Сообщение и Пользователя одновременно
         statement = (

@@ -939,7 +939,7 @@ async function doAuth(endpoint, isRegister = false) {
         } else {
             console.warn("Функция loadMyChats не найдена!");
         }
-
+        window.loadMyChats(); 
     } catch (err) {
         console.error('Auth error:', err);
         if (infoEl) infoEl.innerText = '❌ Ошибка соединения с сервером';
@@ -959,33 +959,50 @@ if (getComputedStyle(displayNameEl).display === 'none' || displayNameEl.value.tr
 };
 if (loginBtn) loginBtn.onclick = (e) => { e.preventDefault(); doAuth('/login'); };
 
-async function loadMyChats() {
-    const res = await fetch('/my-chats', {
-        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('accesstoken') }
-    });
-    if (res.ok) {
-        const chats = await res.json();
-        const sidebar = document.getElementById('chatsList');
-        sidebar.innerHTML = ''; // Очищаем
+window.loadMyChats = async function() {
+    const chatsList = document.getElementById('chatsList'); // Убедись, что такой ID есть в HTML
+    if (!chatsList) return;
 
-        const myDisplayName = localStorage.getItem('myDisplayName');
-        const nameDisplayEl = document.getElementById('myDisplayNameDisplay');
-        if (nameDisplayEl && myDisplayName) {
-            nameDisplayEl.innerText = myDisplayName;
-        }
+    try {
+        const res = await fetch('/my-chats', {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('accesstoken') }
+        });
+
+        if (!res.ok) throw new Error("Ошибка загрузки списка чатов");
+
+        const chats = await res.json();
         
+        // Очищаем список перед отрисовкой
+        chatsList.innerHTML = '';
+
+        if (chats.length === 0) {
+            chatsList.innerHTML = '<div style="padding:15px; color:#555; font-size:0.9em;">Нет активных чатов. Используйте поиск, чтобы найти собеседника.</div>';
+            return;
+        }
+
         chats.forEach(user => {
             const div = document.createElement('div');
             div.className = 'chat-item';
+            div.style = "padding:12px; border-bottom:1px solid #111; cursor:pointer; transition: 0.2s;";
+            
+            // Навешиваем событие клика — то же самое, что и в поиске
+            div.onclick = () => window.selectUser(user.id, user.display_name);
+            
             div.innerHTML = `
-                <div class="chat-info" onclick="selectUser('${user.id}', '${user.display_name}')">
-                    <strong>${user.display_name || user.username}</strong>
-                </div>
+                <div style="font-weight:bold;">${user.display_name}</div>
+                <div style="font-size:0.8em; color:#888;">Нажмите, чтобы открыть чат</div>
             `;
-            sidebar.appendChild(div);
+
+            // Эффект при наведении
+            div.onmouseover = () => div.style.backgroundColor = "#222";
+            div.onmouseout = () => div.style.backgroundColor = "transparent";
+
+            chatsList.appendChild(div);
         });
+    } catch (err) {
+        console.error("Load chats error:", err);
     }
-}
+};
 
 window.renderMessage = function(j) {
     try {
@@ -1378,6 +1395,7 @@ window.addEventListener('DOMContentLoaded', () => {
         // Если токен есть — показываем чат
         if (authLayout) authLayout.style.display = 'none';
         if (mainLayout) mainLayout.style.display = 'block';
+        window.loadMyChats();
         
         const myName = localStorage.getItem('myDisplayName');
         const nameDisp = document.getElementById('myDisplayNameDisplay');
