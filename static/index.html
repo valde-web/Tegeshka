@@ -27,7 +27,6 @@
             background-color: var(--bg-color);
             color: var(--text-color);
             height: 100%;
-            width: 100%;
             overflow: hidden;
         }
 
@@ -288,7 +287,7 @@ textarea, #text { flex-grow: 1; background: transparent; color: var(--text-color
 .icon-btn { background: none; border: none; color: #888; font-size: 1.2em; cursor: pointer; }
 
 /* Сообщения (адаптация старых стилей под новую ширину) */
-.msg-wrapper { max-width: 80%; }
+.msg-wrapper { max-width: 80%; display: flex; margin-bottom: 5px; }
 .msg-wrapper.my { align-self: flex-end; }
 .msg-wrapper.other { align-self: flex-start; }
 
@@ -346,10 +345,10 @@ textarea, #text { flex-grow: 1; background: transparent; color: var(--text-color
 </div>
 
 <!-- Основной Мессенджер (Скрыт до входа) -->
-<div id="main-layout" style="display: flex; height: 100vh; width: 100vw; overflow: hidden; box-sizing: border-box;">
-    <div style="display: flex; height: 100%; width: 100%; overflow: hidden;">
+<div id="main-layout" style="height: 100vh;">
+    <div style="display: flex; height: 100%;">
         
-        <!-- ЛЕВАЯ ПАНЕЛЬ (САЙДБАР) -->
+        <!-- ЛЕВАЯ ПАНЕЛЬ (САЙДБАР) height: 100%; width: 100%; overflow: hidden; -->
         <div class="sidebar" style="width: 300px; background: #17212b; border-right: 1px solid #111; display: flex; flex-direction: column;">
             <div style="padding: 15px; border-bottom: 1px solid #111; display: flex; justify-content: space-between; align-items: center;">
                 <strong id="myDisplayNameDisplay">Профиль</strong>
@@ -368,7 +367,7 @@ textarea, #text { flex-grow: 1; background: transparent; color: var(--text-color
         </div>
 
         <!-- ПРАВАЯ ПАНЕЛЬ (чат) -->
-        <div id="chat-card" style="flex: 1; display: flex; flex-direction: column; background: #0e1621; height: 100%; overflow: hidden;">
+        <div id="chat-card" style="flex-grow: 1; display: flex; flex-direction: column; background: #0e1621; overflow: hidden;">
             
             <!-- Скрытый инпут для комнаты (нужен для твоего JS) -->
             <input type="hidden" id="room" value="1">
@@ -378,8 +377,8 @@ textarea, #text { flex-grow: 1; background: transparent; color: var(--text-color
             </div>
 
             <!-- БЛОК СООБЩЕНИЙ -->
-            <div id="messages" style="flex-grow: 1;  min-height: 0; padding: 10px; overflow-y: auto; background-color: #252525; display: flex; flex-direction: column;  font-size: 1.0em;"></div>
-            <!--  margin-bottom: 15px; -->
+            <div id="messages" style="flex-grow: 1; margin-top: 10px; margin-bottom: 10px; border: 1px solid #444; border-radius: var(--border-radius); height: 300px; padding: 15px; gap: 10px; overflow-y: auto; background-color: #252525; display: flex; flex-direction: column;  font-size: 1.0em;"></div>
+            
             <!-- БЛОК ВВОДА -->
             <div class="cont" style="padding: 15px; background: #17212b; flex-shrink: 0;">
                 <div class="row" style="display:flex; width:100%; gap: 10px; flex-shrink: 0;">
@@ -1288,7 +1287,7 @@ window.addEventListener('DOMContentLoaded', () => {
     } else {
         // Если токена нет — показываем вход
         if (authLayout) authLayout.style.display = 'block';
-        if (mainLayout) mainLayout.style.display = ''; //none
+        if (mainLayout) mainLayout.style.display = '';
     }
 });
 
