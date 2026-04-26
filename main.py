@@ -232,18 +232,38 @@ def me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
 @app.get("/my-chats")
 def get_chats(current_user: User = Depends(get_current_user)):
     with Session(engine) as session:
-        rooms = session.query(Message.room_id).filter(Message.room_id.like(f"%p2p%")).filter(Message.room_id.like(f"%{current_user.id}%")).distinct().all()
-        
-        users = []
-        for (r_id,) in rooms:
-            # Парсим ID собеседника
-            ids = r_id.replace("p2p_", "").split("_")
-            other_id = [i for i in ids if i != str(current_user.id)]
-            if other_id:
-                u = session.get(User, int(other_id[0]))
-                if u:
-                    users.append({"id": u.id, "display_name": u.display_name or u.username})
-        return users
+        statement = select(Message.room).where(
+            Message.room.like(f"%p2p_{current_user.id}_%") |  # комнаты, где я - первый ID
+            Message.room.like(f"%_{current_user.id}")         # комнаты, где я - второй ID (например p2p_1_69)
+        ).distinct()
+
+        rooms_with_my_id = session.exec(
+            select(Message.room)
+            .where(Message.room.contains(f"p2p_")) # Убеждаемся, что это p2p комната
+            .where(Message.room.contains(str(current_user.id))) # Убеждаемся, что там есть наш ID
+        ).unique().scalars().all()
+
+        chat_users = []
+        for r_name in rooms_with_my_id: # Перебираем названия комнат
+            ids_str = r_name.replace("p2p_", "").split("_")
+            
+            other_id = None
+            if len(ids_str) == 2: # Убедимся, что это формат p2p_ID1_ID2
+                if ids_str[0] == str(current_user.id):
+                    other_id = ids_str[1]
+                elif ids_str[1] == str(current_user.id):
+                    other_id = ids_str[0]
+            
+            if other_id and other_id != str(current_user.id): # Проверяем, что ID не наш
+                try:
+                    u = session.get(User, int(other_id))
+                    if u:
+                        # Возвращаем display_name или username, если display_name нет
+                        chat_users.append({"id": u.id, "display_name": u.display_name or u.username})
+                except ValueError:
+                    # Пропускаем, если ID собеседника не является числом
+                    continue
+        return chat_users
 
 @app.post("/register") 
 def register(
