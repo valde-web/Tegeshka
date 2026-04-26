@@ -26,11 +26,8 @@
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             height: 100%;
+            width: 100%;
             overflow: hidden;
         }
 
@@ -39,17 +36,6 @@
             max-width: 500px;
             padding: 20px;
         }
-
-        .card {
-            background: var(--card-bg);
-            border-radius: var(--border-radius);
-            padding: 20px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-            margin-bottom: 20px;
-            color: var(--text-color);
-        }
-
-        h3 { margin-top: 0; color: var(--text-color); font-weight: 500; }
 
         textarea, input {
             width: 100%;
@@ -69,31 +55,6 @@
             outline: none; 
         }
 
-        input:-webkit-autofill {
-        -webkit-box-shadow: 0 0 0px 1000px #1a1a1a inset !important;
-        box-shadow: 0 0 0px 1000px #1a1a1a inset !important;
-        -webkit-text-fill-color: var(--text-color) !important;
-        font-size: 1em;
-        }
-
-        button {
-            font-family:'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
-            font-size: 1.1em;
-            padding: 10px 18px;
-            border-radius: var(--border-radius);
-            border: none;
-            background: var(--accent-color);
-            color: var(--text-color);
-            cursor: pointer;
-            font-weight: bold;
-            transition: background 0.3s;
-            margin-right: 5px;
-            margin-top: 5px;
-        }
-
-        button:hover { background: var(--accent-hover); }
-        button:disabled { background: #555; cursor: not-allowed; }
-
         .msg {
             background: #3d3d3d;
             padding: 8px 12px;
@@ -103,18 +64,6 @@
             word-wrap: break-word;
             white-space: pre-wrap;
         }
-
-        .msg b { color: var(--text-color); display: block; font-size: 0.8em; }
-
-.msg-wrapper {
-    display: flex;
-    width: 100%;
-    margin-bottom: 12px;
-}
-
-/* Выравнивание: мои справа, чужие слева */
-.msg-wrapper.my { justify-content: flex-end; }
-.msg-wrapper.other { justify-content: flex-start; }
 
 /* Стиль самого облачка (рамки) */
 .msg-bubble {
@@ -181,56 +130,10 @@
             margin-top: 5px;
         }
 
-        button:hover { background: var(--accent-hover); }
-        button:disabled { background: #555; cursor: not-allowed; }
-
         #info {
             font-size: 1.0em;
-            margin-top: 10px;
             min-height: 1.2em;
         }
-
-        .msg {
-            background: #3d3d3d;
-            padding: 8px 12px;
-            border-radius: 15px;
-            max-width: 80%;
-            align-self: flex-start;
-            word-wrap: break-word;
-            white-space: pre-wrap;
-        }
-
-/* Стиль самого облачка (рамки) */
-.msg-bubble {
-    max-width: 70%;
-    padding: 8px 12px;
-    border-radius: 12px;
-    position: relative;
-    word-wrap: break-word;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-}
-
-/* Цвета облачков */
-.my .msg-bubble {
-    background: #242424; /* Темно-зеленый (как в WhatsApp) */
-    color: var(--text-color);
-    border-bottom-right-radius: 2px;
-}
-
-.other .msg-bubble {
-    background: #2c1313; /* Темно-серый */
-    color: var(--text-color);
-    border-bottom-left-radius: 2px;
-}
-
-/* Имя отправителя над текстом */
-.msg-name {
-    display: block;
-    font-size: 1em;
-    font-weight: bold;
-    margin-bottom: 4px;
-    color: #9f84ff; /* Матричный зеленый */
-}
 
         .file-link {
             display: block;
@@ -443,8 +346,8 @@ textarea, #text { flex-grow: 1; background: transparent; color: var(--text-color
 </div>
 
 <!-- Основной Мессенджер (Скрыт до входа) -->
-<div id="main-layout" style="display: flex; height: 100vh; width: 100vw; overflow: hidden;">
-    <div style="display: flex; height: 100%; width: 100%;">
+<div id="main-layout" style="display: flex; height: 100vh; width: 100vw; overflow: hidden; box-sizing: border-box;">
+    <div style="display: flex; height: 100%; width: 100%; overflow: hidden;">
         
         <!-- ЛЕВАЯ ПАНЕЛЬ (САЙДБАР) -->
         <div class="sidebar" style="width: 300px; background: #17212b; border-right: 1px solid #111; display: flex; flex-direction: column;">
@@ -465,7 +368,7 @@ textarea, #text { flex-grow: 1; background: transparent; color: var(--text-color
         </div>
 
         <!-- ПРАВАЯ ПАНЕЛЬ (чат) -->
-        <div id="chat-card" style="flex-grow: 1; display: flex; flex-direction: column; background: #0e1621; height: 100vh; max-height: 100vh; overflow: hidden;">
+        <div id="chat-card" style="flex: 1; display: flex; flex-direction: column; background: #0e1621; height: 100%; overflow: hidden;">
             
             <!-- Скрытый инпут для комнаты (нужен для твоего JS) -->
             <input type="hidden" id="room" value="1">
@@ -475,11 +378,11 @@ textarea, #text { flex-grow: 1; background: transparent; color: var(--text-color
             </div>
 
             <!-- БЛОК СООБЩЕНИЙ -->
-            <div id="messages" style="flex-grow: 1; padding: 10px; margin-bottom: 15px; overflow-y: auto; background-color: #252525; display: flex; flex-direction: column; min-height: 0; font-size: 1.0em;"></div>
-
+            <div id="messages" style="flex-grow: 1;  min-height: 0; padding: 10px; overflow-y: auto; background-color: #252525; display: flex; flex-direction: column;  font-size: 1.0em;"></div>
+            <!--  margin-bottom: 15px; -->
             <!-- БЛОК ВВОДА -->
             <div class="cont" style="padding: 15px; background: #17212b; flex-shrink: 0;">
-                <div class="row" style="display:flex; width:100%; gap: 10px;">
+                <div class="row" style="display:flex; width:100%; gap: 10px; flex-shrink: 0;">
                     <textarea id="text" rows="3" placeholder="Напишите сообщение..." style="flex-grow:1; resize:none; font-family: sans-serif;"></textarea>
               
                     <div class="controls-row2" style="display: flex;">
@@ -608,7 +511,7 @@ function showOnlyAuth() {
     const chatCard = document.getElementById('chat-card');
     
     if (authSection) authSection.style.display = 'block';
-    if (chatCard) chatCard.style.display = 'none';
+    if (chatCard) chatCard.style.display = '';
 }
 
 // 4. ЗАПУСК ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
@@ -1385,7 +1288,7 @@ window.addEventListener('DOMContentLoaded', () => {
     } else {
         // Если токена нет — показываем вход
         if (authLayout) authLayout.style.display = 'block';
-        if (mainLayout) mainLayout.style.display = 'none';
+        if (mainLayout) mainLayout.style.display = ''; //none
     }
 });
 
