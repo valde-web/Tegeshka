@@ -185,7 +185,14 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
-        return payload # Возвращаем данные токена
+        
+        # ВАЖНО: Достаем пользователя из базы данных
+        with Session(engine) as session:
+            user = session.get(User, int(user_id))
+            if user is None:
+                raise credentials_exception
+            return user # Теперь возвращается объект класса User
+            
     except (JWTError, JWSError, ValueError):
         raise credentials_exception
 
@@ -232,37 +239,40 @@ def me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
 @app.get("/my-chats")
 def get_chats(current_user: User = Depends(get_current_user)):
     with Session(engine) as session:
+        my_id_str = str(current_user.id)
         statement = select(Message.room).where(
-            Message.room.like(f"%p2p_{current_user.id}_%") |  # комнаты, где я - первый ID
-            Message.room.like(f"%_{current_user.id}")         # комнаты, где я - второй ID (например p2p_1_69)
+            (Message.room.like(f"p2p_{my_id_str}_%")) | 
+            (Message.room.like(f"p2p_%_{my_id_str}"))
         ).distinct()
 
-        rooms_with_my_id = session.exec(
-            select(Message.room)
-            .where(Message.room.contains(f"p2p_")) # Убеждаемся, что это p2p комната
-            .where(Message.room.contains(str(current_user.id))) # Убеждаемся, что там есть наш ID
-        ).unique().scalars().all()
-
+        rooms = session.exec(statement).all()
         chat_users = []
-        for r_name in rooms_with_my_id: # Перебираем названия комнат
-            ids_str = r_name.replace("p2p_", "").split("_")
+        seen_ids = set() # Чтобы не дублировать людей в списке
+
+        for r_name in rooms:
+            if not r_name: continue
             
-            other_id = None
-            if len(ids_str) == 2: # Убедимся, что это формат p2p_ID1_ID2
-                if ids_str[0] == str(current_user.id):
-                    other_id = ids_str[1]
-                elif ids_str[1] == str(current_user.id):
-                    other_id = ids_str[0]
+            # Извлекаем ID из формата p2p_ID1_ID2
+            parts = r_name.replace("p2p_", "").split("_")
+            if len(parts) != 2:
+                continue
             
-            if other_id and other_id != str(current_user.id): # Проверяем, что ID не наш
-                try:
-                    u = session.get(User, int(other_id))
+            # Определяем, какой из ID принадлежит собеседнику
+            other_id_str = parts[1] if parts[0] == my_id_str else parts[0]
+            
+            try:
+                other_id = int(other_id_str)
+                if other_id != current_user.id and other_id not in seen_ids:
+                    u = session.get(User, other_id)
                     if u:
-                        # Возвращаем display_name или username, если display_name нет
-                        chat_users.append({"id": u.id, "display_name": u.display_name or u.username})
-                except ValueError:
-                    # Пропускаем, если ID собеседника не является числом
-                    continue
+                        chat_users.append({
+                            "id": u.id, 
+                            "display_name": u.display_name or u.username
+                        })
+                        seen_ids.add(other_id)
+            except ValueError:
+                continue
+                
         return chat_users
 
 @app.post("/register") 
