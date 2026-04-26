@@ -961,7 +961,7 @@ async function loadMyChats() {
     });
     if (res.ok) {
         const chats = await res.json();
-        const sidebar = document.getElementById('chat-list'); // Убедись, что такой ID есть в HTML слева
+        const sidebar = document.getElementById('chatsList');
         sidebar.innerHTML = ''; // Очищаем
 
         const myDisplayName = localStorage.getItem('myDisplayName');
