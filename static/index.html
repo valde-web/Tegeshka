@@ -94,18 +94,11 @@
         button:hover { background: var(--accent-hover); }
         button:disabled { background: #555; cursor: not-allowed; }
 
-        #info {
-            font-size: 1.0em;
-            margin-top: 10px;
-            min-height: 1.2em;
-        }
-
         /* Chat styles */
         #messages {
             display: flex;
             font-size: 1.0em;
             flex-direction: column;
-            height: 350px;
             overflow-y: auto;
             border: 1px solid #444;
             border-radius: var(--border-radius);
@@ -468,7 +461,7 @@ textarea, #text { flex-grow: 1; background: transparent; color: var(--text-color
 </div>
 
 <!-- Основной Мессенджер (Скрыт до входа) -->
-<div id="main-layout" style="display: none; height: 100vh; width: 100vw;">
+<div id="main-layout" style="display: none; height: 100vh; width: 100vw; overflow: hidden;">
     <div style="display: flex; height: 100%; width: 100%;">
         
         <!-- ЛЕВАЯ ПАНЕЛЬ (САЙДБАР) -->
@@ -490,7 +483,7 @@ textarea, #text { flex-grow: 1; background: transparent; color: var(--text-color
         </div>
 
         <!-- ПРАВАЯ ПАНЕЛЬ (Твой оригинальный чат) -->
-        <div id="chat-card" style="flex-grow: 1; display: flex; flex-direction: column; background: #0e1621;">
+        <div id="chat-card" style="flex-grow: 1; display: flex; flex-direction: column; background: #0e1621; height: 100vh; position: relative;">
             
             <!-- Скрытый инпут для комнаты (нужен для твоего JS) -->
             <input type="hidden" id="room" value="1">
@@ -500,10 +493,10 @@ textarea, #text { flex-grow: 1; background: transparent; color: var(--text-color
             </div>
 
             <!-- ТВОЙ БЛОК СООБЩЕНИЙ -->
-            <div id="messages" style="flex-grow: 1; padding: 15px; overflow-y: auto; height: 100%; background-color: #1a1a1a;"></div>
+            <div id="messages" style="flex-grow: 1; padding: 15px; overflow-y: auto; background-color: #1a1a1a; display: flex; flex-direction: column; min-height: 0;"></div>
 
             <!-- ТВОЙ БЛОК ВВОДА (Все ID сохранены) -->
-            <div class="cont" style="padding: 15px; background: #17212b;">
+            <div class="cont" style="padding: 15px; background: #17212b; flex-shrink: 0;">
                 <div class="row" style="display:flex; width:100%; gap: 10px;">
                     <textarea id="text" rows="3" placeholder="Напишите сообщение..." style="flex-grow:1; resize:none; font-family: sans-serif;"></textarea>
               
