@@ -721,7 +721,12 @@ try {
 ws.onopen = () => {
     console.log("WebSocket успешно открыт для комнаты:", roomName);
     const msgDiv = document.getElementById('messages');
-    if (msgDiv) msgDiv.innerHTML = ''; 
+    if (msgDiv) {
+        msgDiv.innerHTML = '<div style="text-align:center; color:#888; padding:20px;">Загрузка истории...</div>';
+    }
+    if (typeof window.loadHistory === 'function') {
+        window.loadHistory(roomName); 
+    }
     appendMessage('Вы вошли в чат', 'system');
 };
 
@@ -784,19 +789,19 @@ ws.onmessage = (ev) => {
        });
    }
 
-function selectUser(targetId, name) {
+window.selectUser = function(targetId, targetName) {
     const myId = localStorage.getItem('myId');
-    // Создаем уникальный ID комнаты для двоих
-    const room = myId < targetId ? `p2p_${myId}_${targetId}` : `p2p_${targetId}_${myId}`;
-       
-    document.getElementById('room').value = room; // Твой JS подхватит это значение
-    document.getElementById('currentChatName').innerText = name;
-    document.getElementById('messages').innerHTML = ''; // Очистка старого чата
+    const room = Number(myId) < Number(targetId) 
+        ? `p2p_${myId}_${targetId}` 
+        : `p2p_${targetId}_${myId}`;
 
-    connectToWebSocket(room); 
-       
-    loadHistory(room);
-}
+    document.getElementById('currentChatName').innerText = targetName;
+    const roomInput = document.getElementById('room');
+    if (roomInput) roomInput.value = room;
+
+    // Вызываем ТОЛЬКО подключение. История вызовется сама внутри.
+    window.connectWS(room);
+};
 
 window.loadHistory = async function(room) {
     const msgDiv = document.getElementById('messages');
