@@ -461,7 +461,7 @@ textarea, #text { flex-grow: 1; background: transparent; color: var(--text-color
 </div>
 
 <!-- Основной Мессенджер (Скрыт до входа) -->
-<div id="main-layout" style="display: none; height: 100vh; width: 100vw; overflow: hidden;">
+<div id="main-layout" style="display: flex; height: 100vh; width: 100vw; overflow: hidden;">
     <div style="display: flex; height: 100%; width: 100%;">
         
         <!-- ЛЕВАЯ ПАНЕЛЬ (САЙДБАР) -->
@@ -483,12 +483,12 @@ textarea, #text { flex-grow: 1; background: transparent; color: var(--text-color
         </div>
 
         <!-- ПРАВАЯ ПАНЕЛЬ (Твой оригинальный чат) -->
-        <div id="chat-card" style="flex-grow: 1; display: flex; flex-direction: column; background: #0e1621; height: 100vh; position: relative;">
+        <div id="chat-card" style="flex-grow: 1; display: flex; flex-direction: column; background: #0e1621; height: 100vh;">
             
             <!-- Скрытый инпут для комнаты (нужен для твоего JS) -->
             <input type="hidden" id="room" value="1">
 
-            <div id="chatHeader" style="padding: 15px; background: #17212b; border-bottom: 1px solid #111;">
+            <div id="chatHeader" style="padding: 15px; background: #17212b; border-bottom: 1px solid #111; flex-shrink: 0;">
                 <span id="currentChatName">Выберите чат слева</span>
             </div>
 
