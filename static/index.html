@@ -475,12 +475,13 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
         <div class="sidebar" style="width: 300px; background: #17212b; border-right: 1px solid #111; display: flex; flex-direction: column;">
             <div style="padding: 15px; border-bottom: 1px solid #111; display: flex; justify-content: space-between; align-items: center;">
                 <strong id="myDisplayNameDisplay">Профиль</strong>
-                <button id="logoutBtn" style="background:none; border:none; color:#888; cursor:pointer;">🚪</button>
+                <button id="logoutBtn" style="background:none; border:none; color:#888; cursor:pointer;">Выйти из аккаунта</button>
             </div>
             
             <!-- Поиск (вместо "Войти в чат") -->
             <div style="padding: 10px;">
                 <input id="userSearchInput" placeholder="Поиск людей..." oninput="searchUsers()" style="width:100%; background:#242f3d; border:none; padding:10px; border-radius:5px; color:white;">
+                <div id="searchResults"></div>
             </div>
 
             <div id="chatsList" style="flex-grow: 1; overflow-y: auto;">
@@ -721,7 +722,7 @@ ws.onopen = () => {
     console.log("WebSocket успешно открыт для комнаты:", roomName);
     const msgDiv = document.getElementById('messages');
     if (msgDiv) msgDiv.innerHTML = ''; 
-    if (typeof appendMessage === 'function') appendMessage('Вы вошли в чат: ' + roomName, 'system');
+    appendMessage('Вы вошли в чат', 'system');
 };
 
 ws.onmessage = (ev) => {
@@ -929,6 +930,12 @@ async function doAuth(endpoint, isRegister = false) {
             showOnlyChat();
         }
 
+        if (typeof loadMyChats === 'function') {
+            await loadMyChats(); 
+        } else {
+            console.warn("Функция loadMyChats не найдена!");
+        }
+
     } catch (err) {
         console.error('Auth error:', err);
         if (infoEl) infoEl.innerText = '❌ Ошибка соединения с сервером';
@@ -956,13 +963,19 @@ async function loadMyChats() {
         const chats = await res.json();
         const sidebar = document.getElementById('chat-list'); // Убедись, что такой ID есть в HTML слева
         sidebar.innerHTML = ''; // Очищаем
+
+        const myDisplayName = localStorage.getItem('myDisplayName');
+        const nameDisplayEl = document.getElementById('myDisplayNameDisplay');
+        if (nameDisplayEl && myDisplayName) {
+            nameDisplayEl.innerText = myDisplayName;
+        }
         
         chats.forEach(user => {
             const div = document.createElement('div');
             div.className = 'chat-item';
             div.innerHTML = `
                 <div class="chat-info" onclick="selectUser('${user.id}', '${user.display_name}')">
-                    <strong>${user.display_name}</strong>
+                    <strong>${user.display_name || user.username}</strong>
                 </div>
             `;
             sidebar.appendChild(div);
@@ -975,7 +988,7 @@ window.renderMessage = function(j) {
         const myId = localStorage.getItem('myId');
         const isMe = String(j.sender_id) === String(myId);
         const side = isMe ? 'my' : 'other';
-        const name = j.display_name || 'Аноним';
+        const name = j.display_name || j.username || 'Аноним';
         
         let messageText = j.text || '';
         let fileHtml = '';
@@ -1429,13 +1442,17 @@ window.selectUser = function(targetId, targetName) {
     const roomInput = document.getElementById('room');
     if (roomInput) roomInput.value = room;
 
-    document.getElementById('currentChatName').innerText = "Чат с: " + targetName;
-    
-    // ВЫЗЫВАЕМ ГЛОБАЛЬНУЮ ФУНКЦИЮ
+    const chatTitle = document.getElementById('currentChatName');
+    if (chatTitle) chatTitle.innerText = "Чат с: " + targetName;
+
+    // 1. Сначала подключаем сокет
     window.connectWS(room); 
 
+    // 2. СРАЗУ загружаем историю (не ждем второго клика)
     if (typeof window.loadHistory === 'function') {
         window.loadHistory(room);
+    } else {
+        console.error("Функция loadHistory не найдена!");
     }
 };
 </script>

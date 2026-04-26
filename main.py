@@ -230,22 +230,20 @@ def me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     }
 
 @app.get("/my-chats")
-async def get_my_chats(current_user: User = Depends(get_current_user)):
+def get_chats(current_user: User = Depends(get_current_user)):
     with Session(engine) as session:
-        # Ищем все комнаты, где есть твой ID (p2p_69_...)
-        # И достаем ID тех, с кем ты общался
-        statement = select(Message.room_id).where(Message.room_id.contains(f"p2p_")).where(Message.room_id.contains(str(current_user.id))).distinct()
-        rooms = session.execute(statement).scalars().all()
+        rooms = session.query(Message.room_id).filter(Message.room_id.like(f"%p2p%")).filter(Message.room_id.like(f"%{current_user.id}%")).distinct().all()
         
-        chat_users = []
-        for r in rooms:
-            # Извлекаем ID собеседника из названия комнаты p2p_69_83
-            other_id = r.replace("p2p_", "").replace(str(current_user.id), "").replace("_", "")
+        users = []
+        for (r_id,) in rooms:
+            # Парсим ID собеседника
+            ids = r_id.replace("p2p_", "").split("_")
+            other_id = [i for i in ids if i != str(current_user.id)]
             if other_id:
-                u = session.get(User, int(other_id))
+                u = session.get(User, int(other_id[0]))
                 if u:
-                    chat_users.append({"id": u.id, "display_name": u.display_name})
-        return chat_users
+                    users.append({"id": u.id, "display_name": u.display_name or u.username})
+        return users
 
 @app.post("/register") 
 def register(
