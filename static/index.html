@@ -1415,11 +1415,20 @@ window.searchUsers = async function() {
     const input = document.getElementById('userSearchInput');
     const query = input ? input.value.trim() : '';
     const list = document.getElementById('chatsList');
+    const chatsList = document.getElementById('chatsList');
+    const searchResults = document.getElementById('searchResults');
 
-    if (query.length < 1) {
-        if (list) list.innerHTML = '<div style="padding:10px; color:#555;">Введите имя...</div>';
+    if (query.length === 0) {
+        searchResults.innerHTML = '';
+        searchResults.style.display = 'none';
+        chatsList.style.display = 'block';
         return;
     }
+
+    // Если ищем — прячем старые чаты, показываем результаты
+    chatsList.style.display = 'none';
+    searchResults.style.display = 'block';
+    searchResults.innerHTML = '<div style="padding:10px; color:#888;">Поиск...</div>';
 
     try {
         // ОБРАТИ ВНИМАНИЕ: Тут используются обратные кавычки ` `
@@ -1427,26 +1436,30 @@ window.searchUsers = async function() {
             headers: { 'Authorization': 'Bearer ' + localStorage.getItem('accesstoken') }
         });
         
-        if (!res.ok) throw new Error('Ошибка поиска');
-        
         const users = await res.json();
-        if (list) {
-            list.innerHTML = ''; 
-            if (users.length === 0) {
-                list.innerHTML = '<div style="padding:10px; color:#555;">Никто не найден</div>';
-            }
-            users.forEach(u => {
-                const div = document.createElement('div');
-                div.className = 'chat-item';
-                div.style = "padding:12px; border-bottom:1px solid #111; cursor:pointer;";
-                
-                // ТУТ ТОЖЕ ОБРАТНЫЕ КАВЫЧКИ ` `
-                div.innerHTML = `<strong>${u.display_name || u.username}</strong><br><small style="color:#888;">@${u.username}</small>`;
-                
-                div.onclick = () => window.selectUser(u.id, u.display_name || u.username);
-                list.appendChild(div);
-            });
+        
+        searchResults.innerHTML = '';
+        if (users.length === 0) {
+            searchResults.innerHTML = '<div style="padding:10px; color:#888;">Никто не найден</div>';
+            return;
         }
+
+        users.forEach(u => {
+            const div = document.createElement('div');
+            div.className = 'chat-item';
+            div.style = "padding:12px; border-bottom:1px solid #111; cursor:pointer;";
+            div.innerHTML = `<strong>${u.display_name || u.username}</strong><br><small style="color:#888;">@${u.username}</small>`;
+            
+            div.onclick = () => {
+                window.selectUser(u.id, u.display_name || u.username);
+                // Очищаем поиск после выбора
+                input.value = '';
+                searchResults.style.display = 'none';
+                chatsList.style.display = 'block';
+                window.loadMyChats(); // Обновляем список чатов
+            };
+            searchResults.appendChild(div);
+        });
     } catch (err) {
         console.error("Search error:", err);
     }
