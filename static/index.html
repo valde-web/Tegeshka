@@ -401,7 +401,7 @@
 
 /* Поле ввода */
 .input-area { padding: 10px 20px 20px 20px; color: var(--text-color); caret-color: var(--text-color); border-radius: var(--border-radius); border: 1px solid #444; background: #1a1a1a; box-sizing: border-box; transition: border 0.3s; font-size: 1.0em; }
-textarea { flex-grow: 1; background: transparent; color: var(--text-color); caret-color: var(--text-color); resize: none; font-size: 1.05em; outline: none; max-height: 200px; padding: 10px 0; border-radius: var(--border-radius); border: 1px solid #444; background: #1a1a1a; box-sizing: border-box; transition: border 0.3s; font-size: 1.0em; }
+textarea, #text { flex-grow: 1; background: transparent; color: var(--text-color); caret-color: var(--text-color); resize: none; font-size: 1.05em; outline: none; max-height: 200px; padding: 10px 0; border-radius: var(--border-radius); border: 1px solid #444; background: #1a1a1a; box-sizing: border-box; transition: border 0.3s; font-size: 1.0em; }
 .button-grid { display: grid; grid-template-columns: repeat(4, 40px); gap: 5px; }
 .button-grid button { background: none; border: none; cursor: pointer; padding: 8px; border-radius: 50%; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
 .button-grid button:hover { background: #242f3d; }
@@ -500,7 +500,7 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
             </div>
 
             <!-- ТВОЙ БЛОК СООБЩЕНИЙ -->
-            <div id="messages" style="flex-grow: 1; padding: 15px; overflow-y: auto; background-color: #1a1a1a;"></div>
+            <div id="messages" style="flex-grow: 1; padding: 15px; overflow-y: auto; height: 100%; background-color: #1a1a1a;"></div>
 
             <!-- ТВОЙ БЛОК ВВОДА (Все ID сохранены) -->
             <div class="cont" style="padding: 15px; background: #17212b;">
@@ -990,11 +990,11 @@ window.loadMyChats = async function() {
             
             div.innerHTML = `
                 <div style="font-weight:bold;">${user.display_name}</div>
-                <div style="font-size:0.8em; color:#888;">Нажмите, чтобы открыть чат</div>
+                <div style="font-size:0.8em; color:#888;"></div>
             `;
 
             // Эффект при наведении
-            div.onmouseover = () => div.style.backgroundColor = "#222";
+            div.onmouseover = () => div.style.backgroundColor = "#21303e";
             div.onmouseout = () => div.style.backgroundColor = "transparent";
 
             chatsList.appendChild(div);
@@ -1023,7 +1023,7 @@ window.renderMessage = function(j) {
             const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
 
             if (isVoice) {
-                messageText = 'Голосовое сообщение';
+                messageText = '';
                 fileHtml = `
                 <div class="voice-player">
                     <button class="play-btn" type="button" onclick="toggleAudio(this)">▶</button>
@@ -1032,7 +1032,7 @@ window.renderMessage = function(j) {
                     <small class="duration" style="color:#aaa; font-size:10px; margin-left:5px;">0:00</small>
                 </div>`;
             } else if (isVideo) {
-                messageText = 'Видеосообщение';
+                messageText = '';
                 fileHtml = `
                 <div class="video-circle-container" onclick="toggleVideo(this)">
                     <video class="video-circle-node" src="${j.file_url}" playsinline preload="metadata"></video>
@@ -1045,6 +1045,10 @@ window.renderMessage = function(j) {
             } else {
                 fileHtml = `<a href="${j.file_url}" target="_blank" style="color:#00afff; text-decoration:none; display:block; margin-top:8px;">📁 ${j.file_url.split('/').pop()}</a>`;
             }
+        }
+
+        if (messageText === '__voice__' || messageText === '__video__') {
+            messageText = ''; 
         }
 
         const html = `
