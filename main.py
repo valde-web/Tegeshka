@@ -229,6 +229,24 @@ def me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
         "username": user.username
     }
 
+@app.get("/my-chats")
+async def get_my_chats(current_user: User = Depends(get_current_user)):
+    with Session(engine) as session:
+        # Ищем все комнаты, где есть твой ID (p2p_69_...)
+        # И достаем ID тех, с кем ты общался
+        statement = select(Message.room_id).where(Message.room_id.contains(f"p2p_")).where(Message.room_id.contains(str(current_user.id))).distinct()
+        rooms = session.execute(statement).scalars().all()
+        
+        chat_users = []
+        for r in rooms:
+            # Извлекаем ID собеседника из названия комнаты p2p_69_83
+            other_id = r.replace("p2p_", "").replace(str(current_user.id), "").replace("_", "")
+            if other_id:
+                u = session.get(User, int(other_id))
+                if u:
+                    chat_users.append({"id": u.id, "display_name": u.display_name})
+        return chat_users
+
 @app.post("/register") 
 def register(
     username: str = Form(...), 
@@ -437,7 +455,7 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
             out_payload = {
                 "id": new_id,
                 "sender_id": userid,
-                "display_name": display_name,
+                "display_name": user.display_name,
                 "room": room,
                 "text": text,
                 "file_url": file_url,
