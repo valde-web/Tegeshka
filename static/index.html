@@ -94,22 +94,6 @@
         button:hover { background: var(--accent-hover); }
         button:disabled { background: #555; cursor: not-allowed; }
 
-        /* Chat styles */
-        #messages {
-            display: flex;
-            font-size: 1.0em;
-            flex-direction: column;
-            overflow-y: auto;
-            border: 1px solid #444;
-            border-radius: var(--border-radius);
-            padding: 10px;
-            background: #252525;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
         .msg {
             background: #3d3d3d;
             padding: 8px 12px;
@@ -390,8 +374,6 @@
 .chat-header { padding: 10px 20px; background: #17212b; border-bottom: 1px solid #111; display: flex; align-items: center; }
 .chat-info { display: flex; align-items: center; gap: 12px; }
 
-.messages-container { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
-
 /* Поле ввода */
 .input-area { padding: 10px 20px 20px 20px; color: var(--text-color); caret-color: var(--text-color); border-radius: var(--border-radius); border: 1px solid #444; background: #1a1a1a; box-sizing: border-box; transition: border 0.3s; font-size: 1.0em; }
 textarea, #text { flex-grow: 1; background: transparent; color: var(--text-color); caret-color: var(--text-color); resize: none; font-size: 1.05em; outline: none; max-height: 200px; padding: 10px 0; border-radius: var(--border-radius); border: 1px solid #444; background: #1a1a1a; box-sizing: border-box; transition: border 0.3s; font-size: 1.0em; }
@@ -482,8 +464,8 @@ textarea, #text { flex-grow: 1; background: transparent; color: var(--text-color
             </div>
         </div>
 
-        <!-- ПРАВАЯ ПАНЕЛЬ (Твой оригинальный чат) -->
-        <div id="chat-card" style="flex-grow: 1; display: flex; flex-direction: column; background: #0e1621; height: 100vh;">
+        <!-- ПРАВАЯ ПАНЕЛЬ (чат) -->
+        <div id="chat-card" style="flex-grow: 1; display: flex; flex-direction: column; background: #0e1621; height: 100vh; max-height: 100vh; overflow: hidden;">
             
             <!-- Скрытый инпут для комнаты (нужен для твоего JS) -->
             <input type="hidden" id="room" value="1">
@@ -492,10 +474,10 @@ textarea, #text { flex-grow: 1; background: transparent; color: var(--text-color
                 <span id="currentChatName">Выберите чат слева</span>
             </div>
 
-            <!-- ТВОЙ БЛОК СООБЩЕНИЙ -->
-            <div id="messages" style="flex-grow: 1; padding: 15px; overflow-y: auto; background-color: #1a1a1a; display: flex; flex-direction: column; min-height: 0;"></div>
+            <!-- БЛОК СООБЩЕНИЙ -->
+            <div id="messages" style="flex-grow: 1; padding: 10px; margin-bottom: 15px; overflow-y: auto; background-color: #252525; display: flex; flex-direction: column; min-height: 0; font-size: 1.0em;"></div>
 
-            <!-- ТВОЙ БЛОК ВВОДА (Все ID сохранены) -->
+            <!-- БЛОК ВВОДА -->
             <div class="cont" style="padding: 15px; background: #17212b; flex-shrink: 0;">
                 <div class="row" style="display:flex; width:100%; gap: 10px;">
                     <textarea id="text" rows="3" placeholder="Напишите сообщение..." style="flex-grow:1; resize:none; font-family: sans-serif;"></textarea>
