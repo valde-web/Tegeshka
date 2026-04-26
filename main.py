@@ -350,13 +350,21 @@ async def get_messages(room: str, limit: int = 5000000, offset: int = 0, token: 
     with Session(engine) as s:
         statement = (
             select(Message)
+            .join(User, Message.sender_id == User.id)
             .where(Message.room == room)
             .order_by(Message.id.desc()) # Сначала новые
             .limit(limit)
             .offset(offset)
         )
-        messages = s.execute(statement).scalars().all()
-        return messages[::-1] # Возвращаем в хронологическом порядке
+        results = s.execute(statement).all()
+        messages = []
+        for msg, user in results:
+            m_dict = msg.model_dump() # Превращаем объект Message в словарь
+            # Добавляем имя из объекта User
+            m_dict["display_name"] = user.display_name or user.username
+            messages.append(m_dict)
+            
+        return messages[::-1]
     
 @app.get("/users/search")
 async def search_users(query: str, token: str = Depends(oauth2_scheme)):
