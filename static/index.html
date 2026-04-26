@@ -678,6 +678,91 @@ function autoResize(el) {
     el.style.height = el.scrollHeight + 'px';
 }
 
+window.connectWS = function(roomNameFromParam = null) {  
+    console.log("Вызов функции connectWS для комнаты:", roomNameFromParam);
+    const tokenValue = localStorage.getItem('accesstoken');
+
+    if (!tokenValue || tokenValue === 'null') {
+    if (typeof showChatInfo === 'function') showChatInfo('Нет токена — войдите в систему', 'error');
+    return;
+}
+
+let roomName = roomNameFromParam;
+    if (!roomName) {
+        const roomInput = document.getElementById('room');
+        roomName = roomInput ? (roomInput.value || '1') : '1';
+    }
+const proto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
+const base = proto + '//' + location.host;
+const wsUrl = base + '/ws/' + encodeURIComponent(roomName) + '?token=' + encodeURIComponent(tokenValue);
+
+if (ws) {
+        // Если мы уже подключены именно к ЭТОЙ комнате — ничего не делаем
+        if (ws.url.includes('/ws/' + encodeURIComponent(roomName))) {
+            console.log("Уже подключены к комнате:", roomName);
+            return;
+        } 
+        // Если мы подключены к ДРУГОЙ комнате — закрываем старую
+        console.log("Смена чата: закрываем старое соединение...");
+        ws.close(1000, "Переключение комнаты"); 
+        ws = null;
+    }
+
+try {
+    console.log("Попытка подключения к WebSocket:", wsUrl);
+    ws = new WebSocket(wsUrl);
+} catch (err) {
+    console.error('WS init error', err);
+    showChatInfo('Не удалось создать WebSocket', 'error');
+    return;
+}
+
+ws.onopen = () => {
+    console.log("WebSocket успешно открыт для комнаты:", roomName);
+    const msgDiv = document.getElementById('messages');
+    if (msgDiv) msgDiv.innerHTML = ''; 
+    if (typeof appendMessage === 'function') appendMessage('Вы вошли в чат: ' + roomName, 'system');
+};
+
+ws.onmessage = (ev) => {
+    if (ev.data.startsWith('{')) {
+        try {
+            const j = JSON.parse(ev.data);
+            const myId = localStorage.getItem('myId');
+            if (String(j.sender_id) !== String(myId)) {
+                const audioNotify = new Audio('/static/zvukTG.mp3');
+                audioNotify.volume = 0.5;
+                audioNotify.play().catch(e => console.log("Звук заблокирован"));
+            }
+            if (typeof window.renderMessage === 'function') {
+                window.renderMessage(j);
+            }
+        } catch (e) {
+            console.error("Ошибка парсинга JSON:", e);
+        }
+    } else {
+        const sysMsg = document.createElement('div');
+        sysMsg.style.cssText = "text-align:center; color:#888; font-size: 0.9em; margin:10px 0; width:100%;";
+        sysMsg.textContent = ev.data;
+        const msgDiv = document.getElementById('messages');
+        if (msgDiv) msgDiv.appendChild(sysMsg);
+    }
+};
+
+    ws.onclose = (ev) => {
+        console.log("WS закрыт. Код:", ev.code);
+        // Если мы сами закрыли его для переключения (код 1000 или 1005), не спамим ошибками
+        if (ev.code !== 1000 && ev.code !== 1005) {
+            appendMessage('Соединение разорвано', 'system');
+            ws = null;
+        }
+    };
+
+    ws.onerror = (e) => {
+        console.error('WS error', e);
+    };
+}
+
    async function searchUsers() {
        const q = document.getElementById('userSearchInput').value;
        if (q.length < 2) return;
@@ -862,7 +947,6 @@ if (getComputedStyle(displayNameEl).display === 'none' || displayNameEl.value.tr
 };
 if (loginBtn) loginBtn.onclick = (e) => { e.preventDefault(); doAuth('/login'); };
 
-// Выносим отрисовку в отдельную функцию
 window.renderMessage = function(j) {
     try {
         const myId = localStorage.getItem('myId');
@@ -917,91 +1001,6 @@ window.renderMessage = function(j) {
         console.error("Ошибка отрисовки сообщения:", e);
     }
 };
-
-function connectWS(roomNameFromParam = null) { 
-    const tokenValue = localStorage.getItem('accesstoken');
-
-    if (!tokenValue || tokenValue === 'null') {
-    showChatInfo('Нет токена — войдите в систему', 'error');
-    return;
-}
-
-let roomName = roomNameFromParam;
-    if (!roomName) {
-        const roomInput = document.getElementById('room');
-        roomName = roomInput ? (roomInput.value || '1') : '1';
-    }
-const proto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
-const base = proto + '//' + location.host;
-const wsUrl = base + '/ws/' + encodeURIComponent(roomName) + '?token=' + encodeURIComponent(tokenValue);
-
-if (ws) {
-        // Если мы уже подключены именно к ЭТОЙ комнате — ничего не делаем
-        if (ws.url.includes('/ws/' + encodeURIComponent(roomName))) {
-            console.log("Уже подключены к комнате:", roomName);
-            return;
-        } 
-        // Если мы подключены к ДРУГОЙ комнате — закрываем старую
-        console.log("Смена чата: закрываем старое соединение...");
-        ws.close(1000, "Переключение комнаты"); 
-        ws = null;
-    }
-
-    console.log("Попытка подключения к WebSocket:", wsUrl);
-
-try {
-    ws = new WebSocket(wsUrl);
-} catch (err) {
-    console.error('WS init error', err);
-    showChatInfo('Не удалось создать WebSocket', 'error');
-    return;
-}
-
-ws.onopen = () => {
-    console.log("WebSocket успешно открыт для комнаты:", roomName);
-    const msgDiv = document.getElementById('messages');
-    if (msgDiv) msgDiv.innerHTML = ''; 
-    appendMessage('Вы вошли в чат с' + roomName, 'system');
-};
-
-ws.onmessage = (ev) => {
-    // Проверяем, пришел ли JSON (сообщение) или обычный текст (системное)
-    if (ev.data.startsWith('{')) {
-        try {
-            const j = JSON.parse(ev.data);
-            const myId = localStorage.getItem('myId');
-            if (String(j.sender_id) !== String(myId)) {
-                const audioNotify = new Audio('/static/zvukTG.mp3');
-                audioNotify.volume = 0.5;
-                audioNotify.play().catch(e => console.log("Звук заблокирован"));
-            }
-            window.renderMessage(j);
-        } catch (e) {
-            console.error("Ошибка парсинга JSON:", e);
-        }
-    } else {
-        // Системные сообщения (вход/выход)
-        const sysMsg = document.createElement('div');
-        sysMsg.style.cssText = "text-align:center; color:#888; font-size: 0.9em; margin:10px 0; width:100%;";
-        sysMsg.textContent = ev.data;
-        const msgDiv = document.getElementById('messages');
-        if (msgDiv) msgDiv.appendChild(sysMsg);
-    }
-};
-
-    ws.onclose = (ev) => {
-        console.log("WS закрыт. Код:", ev.code);
-        // Если мы сами закрыли его для переключения (код 1000 или 1005), не спамим ошибками
-        if (ev.code !== 1000 && ev.code !== 1005) {
-            appendMessage('Соединение разорвано', 'system');
-            ws = null;
-        }
-    };
-
-    ws.onerror = (e) => {
-        console.error('WS error', e);
-    };
-}
 
 // ИСПРАВЛЕННЫЙ ВЫХОД
 if (logoutBtn) { 
@@ -1397,10 +1396,7 @@ window.searchUsers = async function() {
 
 window.selectUser = function(targetId, targetName) {
     const myId = localStorage.getItem('myId');
-    if (!myId) {
-        alert("Ошибка: ID пользователя не найден. Авторизуйтесь заново.");
-        return;
-    }
+    if (!myId) return alert("Авторизуйтесь заново");
 
     // И ТУТ ОБРАТНЫЕ КАВЫЧКИ ` ` для формирования ID комнаты
     const room = Number(myId) < Number(targetId) 
@@ -1410,29 +1406,13 @@ window.selectUser = function(targetId, targetName) {
     const roomInput = document.getElementById('room');
     if (roomInput) roomInput.value = room;
 
-    const chatHeader = document.getElementById('currentChatName');
-    if (chatHeader) {
-        chatHeader.innerText = "Чат с: " + targetName;
-    }
-
-    const msgDiv = document.getElementById('messages');
-    if (msgDiv) {
-        msgDiv.innerHTML = '<div style="text-align:center; color:#888; padding:20px;">Подключение к чату...</div>';
-    }
+    document.getElementById('currentChatName').innerText = "Чат с: " + targetName;
     
-    if (typeof window.connectWS === 'function') {
-        window.connectWS(room); 
-    } else if (typeof connectWS === 'function') {
-        connectWS(room);
-    } else {
-        console.error("Критическая ошибка: функция connectWS не найдена в коде!");
-    }
+    // ВЫЗЫВАЕМ ГЛОБАЛЬНУЮ ФУНКЦИЮ
+    window.connectWS(room); 
 
-    // Загружаем историю (если функция определена)
     if (typeof window.loadHistory === 'function') {
         window.loadHistory(room);
-    } else if (typeof loadHistory === 'function') {
-        loadHistory(room);
     }
 };
 </script>
