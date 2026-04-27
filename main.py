@@ -48,9 +48,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/files", StaticFiles(directory=UPLOAD_DIR), name="files")
 
 cloudinary.config( 
-  cloud_name = "CLOUDINARY_CLOUD_NAME", 
-  api_key = "CLOUDINARY_API_KEY", 
-  api_secret = "CLOUDINARY_API_SECRET",
+  cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME"), 
+  api_key = os.getenv("CLOUDINARY_API_KEY"), 
+  api_secret = os.getenv("CLOUDINARY_API_SECRET"),
   secure = True
 )
 
@@ -392,23 +392,22 @@ async def search_users(query: str, token: str = Depends(oauth2_scheme)):
         return [{"id": u.id, "username": u.username, "display_name": u.display_name, "avatar": u.avatar_url} for u in results]
 
 @app.post("/upload")
-async def uploadfile(token: str = Form(...), file: UploadFile = File(...)):
+async def upload_file(token: str = Form(...), file: UploadFile = File(...)):
     try:
+        # Проверяем, настроены ли переменные
+        if not os.getenv("CLOUDINARY_API_KEY"):
+            raise Exception("Cloudinary credentials are not set in Render environment")
+
         upload_result = cloudinary.uploader.upload(
             file.file, 
             resource_type="auto",
-            folder="my_chat_files" # Папка внутри Cloudinary
+            folder="chats"
         )
-        
-        # 2. Получаем прямую безопасную ссылку (HTTPS)
-        file_url = upload_result.get("secure_url")
-        
-        # 3. Возвращаем эту ссылку фронтенду
-        return {"file_url": file_url}
-        
+        return {"file_url": upload_result.get("secure_url")}
     except Exception as e:
         print(f"Cloudinary Error: {e}")
-        return {"detail": "Ошибка при загрузке в облако"}, 500
+        # Возвращаем ошибку 500, чтобы JS понял, что загрузка не удалась
+        raise HTTPException(status_code=500, detail=str(e))
 
 class ConnectionManager:
     def __init__(self):
