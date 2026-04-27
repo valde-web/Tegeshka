@@ -3,7 +3,7 @@ import uuid
 import aiofiles
 import json
 from typing import Optional, List
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, status, Depends, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, WebSocket, APIRouter, WebSocketDisconnect, status, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.exc import OperationalError, IntegrityError
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -16,6 +16,8 @@ import urllib.parse
 from sqlalchemy.exc import IntegrityError, OperationalError
 import cloudinary
 import cloudinary.uploader
+import mimetypes 
+import time
 from passlib.context import CryptContext
 from jose import jwt, JWTError, JWSError
 from datetime import datetime, timedelta
@@ -397,16 +399,28 @@ async def upload_file(token: str = Form(...), file: UploadFile = File(...)):
         # Проверяем, настроены ли переменные
         if not os.getenv("CLOUDINARY_API_KEY"):
             raise Exception("Cloudinary credentials are not set in Render environment")
+        
+        mime_type = file.content_type
+        resource_type_for_cloudinary = "raw"
+        if mime_type.startswith("image/"):
+            resource_type_for_cloudinary = "image"
+        elif mime_type.startswith("video/"):
+            resource_type_for_cloudinary = "video"
+        elif mime_type.startswith("audio/"):
+            resource_type_for_cloudinary = "raw" 
+
+        original_filename_base, original_extension = os.path.splitext(file.filename)
+        unique_public_id = f"chats/{original_filename_base}_{int(time.time())}"
 
         upload_result = cloudinary.uploader.upload(
             file.file, 
-            resource_type="auto",
-            folder="chats"
+            resource_type=resource_type_for_cloudinary,
+            folder="chats", 
+            public_id=unique_public_id
         )
         return {"file_url": upload_result.get("secure_url")}
     except Exception as e:
         print(f"Cloudinary Error: {e}")
-        # Возвращаем ошибку 500, чтобы JS понял, что загрузка не удалась
         raise HTTPException(status_code=500, detail=str(e))
 
 class ConnectionManager:
