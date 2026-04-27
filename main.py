@@ -352,7 +352,7 @@ async def get_messages(room: str, limit: int = 500000, offset: int = 0, token: s
             select(Message, User)
             .join(User, Message.sender_id == User.id)
             .where(Message.room == room)
-            .order_by(Message.id.desc()) # Сначала берем последние
+            .order_by(Message.id.desc())
             .limit(limit)
             .offset(offset)
         )
@@ -366,6 +366,7 @@ async def get_messages(room: str, limit: int = 500000, offset: int = 0, token: s
             m_dict = msg.model_dump() # Превращаем объект Message в словарь
             # Добавляем имя из объекта User
             m_dict["display_name"] = user.display_name or user.username
+            m_dict["file_url"] = m_dict.get("file_path")
             messages_with_names.append(m_dict)
             
         # Возвращаем в правильном хронологическом порядке (старые вверху, новые внизу)

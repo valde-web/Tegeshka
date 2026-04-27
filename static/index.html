@@ -33,7 +33,7 @@
 
         .container {
             width: 100%;
-            max-width: 500px;
+            max-width: 400px;
             padding: 20px;
         }
 
@@ -55,7 +55,7 @@
             outline: none; 
         }
 
-.card {
+        .card {
             background: var(--card-bg);
             border-radius: var(--border-radius);
             padding: 20px;
@@ -894,6 +894,7 @@ window.renderMessage = function(j) {
         const isMe = String(j.sender_id) === String(myId);
         const side = isMe ? 'my' : 'other';
         const name = j.display_name || j.username || 'Аноним';
+        const fileUrl = j.file_url || j.file_path || null;
         
         let messageText = j.text || '';
         let fileHtml = '';
@@ -903,15 +904,15 @@ window.renderMessage = function(j) {
         const isVideo = messageText === '__video__';
 
         if (j.file_url) {
-            const url = j.file_url.toLowerCase();
-            const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+            const urlLower = fileUrl.toLowerCase();
+            const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(urlLower);
 
             if (isVoice) {
                 messageText = '';
                 fileHtml = `
                 <div class="voice-player">
                     <button class="play-btn" type="button" onclick="toggleAudio(this)">▶</button>
-                    <audio src="${j.file_url}" preload="metadata"></audio>
+                    <audio src="${fileUrl}" preload="metadata"></audio>
                     <div class="voice-progress"><div class="voice-progress-fill"></div></div>
                     <small class="duration" style="color:#aaa; font-size:10px; margin-left:5px;">0:00</small>
                 </div>`;
@@ -919,15 +920,15 @@ window.renderMessage = function(j) {
                 messageText = '';
                 fileHtml = `
                 <div class="video-circle-container" onclick="toggleVideo(this)">
-                    <video class="video-circle-node" src="${j.file_url}" playsinline preload="metadata"></video>
+                    <video class="video-circle-node" src="${fileUrl}" playsinline preload="metadata"></video>
                     <svg class="video-progress-svg">
                         <circle class="video-progress-circle" cx="105" cy="105" r="100"></circle>
                     </svg>
                 </div>`;
             } else if (isImage) {
-                fileHtml = `<img src="${j.file_url}" style="max-width: 300px; max-height: 300px; width: auto; height: auto; object-fit: contain; border-radius:8px; margin-top:8px; cursor:pointer;" onclick="window.open(this.src)">`;
+                fileHtml = `<img src="${fileUrl}" style="max-width: 300px; max-height: 300px; width: auto; height: auto; object-fit: contain; border-radius:8px; margin-top:8px; cursor:pointer;" onclick="window.open(this.src)">`;
             } else {
-                fileHtml = `<a href="${j.file_url}" target="_blank" style="color:#00afff; text-decoration:none; display:block; margin-top:8px;">📁 ${j.file_url.split('/').pop()}</a>`;
+                fileHtml = `<a href="${fileUrl}" target="_blank" style="color:#00afff; text-decoration:none; display:block; margin-top:8px;">📁 ${fileUrl.split('/').pop()}</a>`;
             }
         }
 
@@ -940,8 +941,9 @@ window.renderMessage = function(j) {
             ${messageText ? `<div class="msg-text" style="white-space: pre-wrap;">${messageText}</div>` : ''}
             ${fileHtml}
         `;
-
-        appendMessage(html, side);
+        if (typeof appendMessage === 'function') {
+            appendMessage(html, side);
+        }
     } catch (e) {
         console.error("Ошибка отрисовки сообщения:", e);
     }
