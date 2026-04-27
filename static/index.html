@@ -508,7 +508,7 @@ function showOnlyAuth() {
     const chatCard = document.getElementById('chat-card');
     
     if (authSection) authSection.style.display = 'block';
-    if (chatCard) chatCard.style.display = '';
+    if (chatCard) chatCard.style.display = 'none';
 }
 
 // 4. ЗАПУСК ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
@@ -1298,7 +1298,7 @@ window.addEventListener('DOMContentLoaded', () => {
     } else {
         // Если токена нет — показываем вход
         if (authLayout) authLayout.style.display = 'block';
-        if (mainLayout) mainLayout.style.display = '';
+        if (mainLayout) mainLayout.style.display = 'none';
     }
 });
 
