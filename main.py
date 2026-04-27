@@ -14,6 +14,8 @@ import firebase_admin
 from firebase_admin import credentials, initialize_app, messaging as fb_messaging
 import urllib.parse
 from sqlalchemy.exc import IntegrityError, OperationalError
+import cloudinary
+import cloudinary.uploader
 from passlib.context import CryptContext
 from jose import jwt, JWTError, JWSError
 from datetime import datetime, timedelta
@@ -43,6 +45,14 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 app = FastAPI()
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/files", StaticFiles(directory=UPLOAD_DIR), name="files")
+
+cloudinary.config( 
+  cloud_name = "CLOUDINARY_CLOUD_NAME", 
+  api_key = "CLOUDINARY_API_KEY", 
+  api_secret = "CLOUDINARY_API_SECRET",
+  secure = True
+)
 
 firebase_config_str = os.environ.get("FIREBASE_JSON")
 if firebase_config_str:
@@ -381,25 +391,24 @@ async def search_users(query: str, token: str = Depends(oauth2_scheme)):
         results = s.exec(statement).all()
         return [{"id": u.id, "username": u.username, "display_name": u.display_name, "avatar": u.avatar_url} for u in results]
 
-app.mount("/files", StaticFiles(directory=UPLOAD_DIR), name="files")
-
 @app.post("/upload")
 async def uploadfile(token: str = Form(...), file: UploadFile = File(...)):
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        userid = int(payload.get("sub"))
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    
-    ext = os.path.splitext(file.filename)[1]
-    filename = f"{uuid.uuid4().hex}{ext}"
-    path = os.path.join(UPLOAD_DIR, filename)
-    
-    async with aiofiles.open(path, 'wb') as out:
-        content = await file.read()
-        await out.write(content)
-    
-    return {"file_url": f"/files/{filename}"}
+        upload_result = cloudinary.uploader.upload(
+            file.file, 
+            resource_type="auto",
+            folder="my_chat_files" # Папка внутри Cloudinary
+        )
+        
+        # 2. Получаем прямую безопасную ссылку (HTTPS)
+        file_url = upload_result.get("secure_url")
+        
+        # 3. Возвращаем эту ссылку фронтенду
+        return {"file_url": file_url}
+        
+    except Exception as e:
+        print(f"Cloudinary Error: {e}")
+        return {"detail": "Ошибка при загрузке в облако"}, 500
 
 class ConnectionManager:
     def __init__(self):
