@@ -245,7 +245,7 @@ textarea, #text { flex-grow: 1; background: transparent; color: var(--text-color
 .icon-btn { background: none; border: none; color: #888; font-size: 1.2em; cursor: pointer; }
 
 /* Сообщения (адаптация старых стилей под новую ширину) */
-.msg-wrapper { max-width: 80%; width: 100%; display: flex; margin-bottom: 5px; }
+.msg-wrapper { max-width: 80%; display: flex; margin-bottom: 5px; }
 .msg-wrapper.my { align-self: flex-end; }
 .msg-wrapper.other { align-self: flex-start; }
 .msg {
@@ -260,7 +260,7 @@ textarea, #text { flex-grow: 1; background: transparent; color: var(--text-color
 
 /* Стиль самого облачка (рамки) */
 .msg-bubble {
-    max-width: 70%;
+    max-width: 100%;
     padding: 8px 12px;
     border-radius: 12px;
     position: relative;
@@ -381,8 +381,7 @@ textarea, #text { flex-grow: 1; background: transparent; color: var(--text-color
             <!-- БЛОК ВВОДА -->
             <div class="cont" style="padding: 15px; background: #17212b; flex-shrink: 0; margin-top: auto;">
                 <div class="row" style="display:flex; width:100%; gap: 10px; flex-shrink: 0;">
-                    <textarea id="text" rows="3" placeholder="Напишите сообщение..." style="flex-grow:1; resize:none; font-family: sans-serif; padding: 15px;"></textarea>
-              
+                    <textarea id="text" rows="1" placeholder="Напишите сообщение..." style="line-height: 1.4; max-height: 400px; min-height: 42px; overflow-y: hidden; font-family: sans-serif; padding: 10px 12px;" oninput="autoResize(this)"></textarea>
                     <div class="controls-row2" style="display: flex;">
                         <input type="file" id="file" style="display:none">
                         <div class="row2" style="display: grid; grid-template-columns: 40px 40px; grid-template-rows: 40px 40px; gap: 5px;">
@@ -550,10 +549,19 @@ function showChatInfo(msg = '', kind = 'info') {
 
 showOnlyAuth();
 
-function autoResize(el) {
-    el.style.height = 'auto';
-    el.style.height = el.scrollHeight + 'px';
-}
+window.autoResize = function(el) {
+    el.style.height = 'auto'; 
+    
+    const maxHeight = 400; 
+
+    if (el.scrollHeight > maxHeight) {
+        el.style.height = maxHeight + 'px';
+        el.style.overflowY = 'auto'; // Показываем скролл
+    } else {
+        el.style.height = el.scrollHeight + 'px';
+        el.style.overflowY = 'hidden'; // Прячем скролл
+    }
+};
 
 window.connectWS = function(roomNameFromParam = null) {  
     console.log("Вызов функции connectWS для комнаты:", roomNameFromParam);
@@ -917,7 +925,7 @@ window.renderMessage = function(j) {
                     </svg>
                 </div>`;
             } else if (isImage) {
-                fileHtml = `<img src="${j.file_url}" style="max-width:100%; border-radius:8px; margin-top:8px; cursor:pointer;" onclick="window.open(this.src)">`;
+                fileHtml = `<img src="${j.file_url}" style="max-width: 300px; max-height: 300px; width: auto; height: auto; object-fit: contain; border-radius:8px; margin-top:8px; cursor:pointer;" onclick="window.open(this.src)">`;
             } else {
                 fileHtml = `<a href="${j.file_url}" target="_blank" style="color:#00afff; text-decoration:none; display:block; margin-top:8px;">📁 ${j.file_url.split('/').pop()}</a>`;
             }
@@ -1058,7 +1066,11 @@ async function sendMessage() {
     try {
         // console.log('OUT WS payload', payload);
         ws.send(JSON.stringify(payload));
-        if (textEl) textEl.value = ''; // Стираем текст в поле ввода
+        if (textEl) {
+            textEl.value = ''; // Стираем текст в поле ввода
+            if (typeof autoResize === 'function') { // Проверяем, что autoResize существует
+                autoResize(textEl); }
+        }
         if (fileEl) fileEl.value = '';  // Сбрасываем выбранный файл
         if (fileNameEl) fileNameEl.textContent = ''; // Стираем имя файла у скрепки
         
