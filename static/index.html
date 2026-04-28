@@ -303,7 +303,74 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
 .chat-item:hover { background: #242f3d; }
 .chat-item .avatar { width: 40px; height: 40px; border-radius: 50%; background: #2c3b4a; }
 
+/* Окно звонка */
+#call-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(14, 22, 33, 0.95);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    color: white;
+}
 
+.video-container {
+    position: relative;
+    width: 80%;
+    max-width: 900px;
+    aspect-ratio: 16/9;
+    background: #000;
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+#remote-video { width: 100%; height: 100%; object-fit: cover; }
+#local-video { 
+    position: absolute; 
+    top: 20px; right: 20px; 
+    width: 200px; border-radius: 10px; 
+    border: 2px solid #2b5278;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+.call-controls {
+    margin-top: 20px;
+    display: flex;
+    gap: 20px;
+}
+
+.call-btn {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.3s;
+}
+
+.btn-mute { background: #242f3d; }
+.btn-camera { background: #242f3d; }
+.btn-screen { background: #242f3d; }
+.btn-hangup { background: #e53935; } /* Красная кнопка сброса */
+
+.call-btn:hover { transform: scale(1.1); opacity: 0.8; }
+.call-btn.active { background: #2b5278; }
+
+#incoming-call-modal {
+    position: fixed;
+    top: 20px; right: 20px;
+    background: #17212b;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+    display: none;
+    z-index: 10000;
+    border: 1px solid #2b5278;
+}
 
         /* Ползунок (thumb) */
         ::-webkit-scrollbar-thumb {
@@ -376,6 +443,9 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
 
             <div id="chatHeader" style="padding: 15px; background: #17212b; border-bottom: 1px solid #111; flex-shrink: 0;">
                 <span id="currentChatName">Выберите чат слева</span>
+                <!-- Кнопка звонка -->
+                <button id="startCallBtn" onclick="initiateCall()" style="background: none; border: none; cursor: pointer; display: none;">
+                <img src="https://s.fotora.ru/2459a44d2c92abad.png" width="24" style="filter: brightness(0) invert(1);"></button>
             </div>
 
             <!-- БЛОК СООБЩЕНИЙ -->
@@ -404,6 +474,29 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
 
 <!-- Твой видеопревью -->
 <video id="videoPreview" style="display:none; position:fixed; bottom:250px; right:100px; width:150px; height:150px; border-radius:50%; object-fit:cover; border:2px solid #00afff; z-index:1000; background:#000;" autoplay muted></video>
+
+<!-- Окно звонка -->
+<div id="call-overlay">
+    <h2 id="call-status">Звонок...</h2>
+    <div class="video-container">
+        <video id="remote-video" autoplay playsinline></video>
+        <video id="local-video" autoplay muted playsinline></video>
+    </div>
+    <div class="call-controls">
+        <button class="call-btn btn-mute" onclick="toggleMute()" title="Микрофон"><img src="https://s.fotora.ru/cb89d6c22bf9d062.png" width="20"></button>
+        <button class="call-btn btn-camera" onclick="toggleCamera()" title="Камера"><img src="https://s.fotora.ru/816fd3692efab9c4.png" width="20"></button>
+        <button class="call-btn btn-screen" onclick="toggleScreenShare()" title="Экран"><img src="https://s.fotora.ru/1d29182e85c24e3e.png" width="20"></button>
+        <button class="call-btn btn-hangup" onclick="hangup()" title="Завершить"><img src="https://s.fotora.ru/3a00c1be9ec0baa7.png" width="20" style="transform: rotate(135deg);"></button>
+    </div>
+</div>
+<!-- Модалка входящего вызова -->
+<div id="incoming-call-modal">
+    <p style="color: white; margin-bottom: 10px;">Входящий звонок...</p>
+    <div style="display: flex; gap: 10px;">
+        <button onclick="acceptCall()" style="background: #4caf50; padding: 8px 15px; border-radius: 5px; color: white; border: none; cursor: pointer;">Ответить</button>
+        <button onclick="rejectCall()" style="background: #f44336; padding: 8px 15px; border-radius: 5px; color: white; border: none; cursor: pointer;">Отклонить</button>
+    </div>
+</div>
 
 <script>
 const firebaseConfig = {
@@ -618,6 +711,11 @@ ws.onopen = () => {
 };
 
 ws.onmessage = (ev) => {
+    const data = JSON.parse(event.data);
+    if (data.type === 'call_signal') {
+        handleCallSignal(data);
+        return;
+    }
     if (ev.data.startsWith('{')) {
         try {
             const j = JSON.parse(ev.data);
@@ -1395,6 +1493,174 @@ window.selectUser = function(targetId, targetName) {
         console.error("Функция loadHistory не найдена!");
     }
 };
+
+
+let localStream;
+let peerConnection;
+let isScreenSharing = false;
+
+// Конфигурация STUN-сервера (чтобы пробивать NAT)
+const rtcConfig = {
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+};
+
+// Функция показа кнопки вызова (вызывать при открытии чата)
+function updateCallButton() {
+    const btn = document.getElementById('startCallBtn');
+    const room = document.getElementById('room').value;
+    // Показываем кнопку только если это P2P чат
+    btn.style.display = room.startsWith('p2p_') ? 'block' : 'none';
+}
+
+// 1. Инициация звонка
+async function initiateCall() {
+    document.getElementById('call-overlay').style.display = 'flex';
+    document.getElementById('call-status').innerText = "Вызов...";
+    
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        document.getElementById('local-video').srcObject = localStream;
+
+        // Отправляем сигнал "хочу позвонить" через твой WS
+        ws.send(JSON.stringify({
+            type: 'call_signal',
+            subtype: 'offer_request',
+            room: document.getElementById('room').value
+        }));
+    } catch (err) {
+        console.error("Ошибка доступа к камере:", err);
+        alert("Не удалось получить доступ к камере/микрофону");
+    }
+}
+
+// 2. Обработка сигналов внутри твоего существующего ws.onmessage
+// Добавь это внутрь своей функции ws.onmessage:
+/*
+    const data = JSON.parse(event.data);
+    if (data.type === 'call_signal') {
+        handleCallSignal(data);
+        return;
+    }
+*/
+
+async function handleCallSignal(data) {
+    switch (data.subtype) {
+        case 'offer_request':
+            document.getElementById('incoming-call-modal').style.display = 'block';
+            window.incomingCallData = data;
+            break;
+            
+        case 'webrtc_offer':
+            if (!peerConnection) createPeerConnection();
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            ws.send(JSON.stringify({
+                type: 'call_signal', subtype: 'webrtc_answer',
+                answer: answer, room: data.room
+            }));
+            break;
+
+        case 'webrtc_answer':
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            break;
+
+        case 'ice_candidate':
+            if (peerConnection) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
+            break;
+
+        case 'hangup':
+            stopAllTracks();
+            break;
+    }
+}
+
+async function acceptCall() {
+    document.getElementById('incoming-call-modal').style.display = 'none';
+    document.getElementById('call-overlay').style.display = 'flex';
+    document.getElementById('call-status').innerText = "В разговоре";
+
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    document.getElementById('local-video').srcObject = localStream;
+
+    createPeerConnection();
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    
+    ws.send(JSON.stringify({
+        type: 'call_signal', subtype: 'webrtc_offer',
+        offer: offer, room: window.incomingCallData.room
+    }));
+}
+
+function createPeerConnection() {
+    peerConnection = new RTCPeerConnection(rtcConfig);
+    
+    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+    peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+            ws.send(JSON.stringify({
+                type: 'call_signal', subtype: 'ice_candidate',
+                candidate: event.candidate, room: document.getElementById('room').value
+            }));
+        }
+    };
+
+    peerConnection.ontrack = (event) => {
+        document.getElementById('remote-video').srcObject = event.streams[0];
+    };
+}
+
+// Управление медиа
+function toggleMute() {
+    const audioTrack = localStream.getAudioTracks()[0];
+    audioTrack.enabled = !audioTrack.enabled;
+    document.querySelector('.btn-mute').classList.toggle('active', !audioTrack.enabled);
+}
+
+function toggleCamera() {
+    const videoTrack = localStream.getVideoTracks()[0];
+    videoTrack.enabled = !videoTrack.enabled;
+    document.querySelector('.btn-camera').classList.toggle('active', !videoTrack.enabled);
+}
+
+async function toggleScreenShare() {
+    if (!isScreenSharing) {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const videoTrack = screenStream.getVideoTracks()[0];
+        const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+        sender.replaceTrack(videoTrack);
+        document.getElementById('local-video').srcObject = screenStream;
+        isScreenSharing = true;
+        
+        videoTrack.onended = () => toggleScreenShare(); // Возврат при остановке
+    } else {
+        const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const videoTrack = videoStream.getVideoTracks()[0];
+        const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+        sender.replaceTrack(videoTrack);
+        document.getElementById('local-video').srcObject = videoStream;
+        isScreenSharing = false;
+    }
+}
+
+function hangup() {
+    ws.send(JSON.stringify({
+        type: 'call_signal', subtype: 'hangup',
+        room: document.getElementById('room').value
+    }));
+    stopAllTracks();
+}
+
+function stopAllTracks() {
+    if (localStream) localStream.getTracks().forEach(track => track.stop());
+    if (peerConnection) peerConnection.close();
+    peerConnection = null;
+    document.getElementById('call-overlay').style.display = 'none';
+}
 </script>
 </body>
 </html>

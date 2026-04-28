@@ -448,88 +448,132 @@ manager = ConnectionManager()
 
 @app.websocket("/ws/{room}")
 async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None):
-    # 1. Подключаемся через менеджер (там внутри accept)
+    # 1. Подключаемся через менеджер
     await manager.connect(room, websocket)
     print(f"--- [WS OPEN] Room: {room} ---")
 
+    user = None # Объявляем user здесь, чтобы он был доступен в finally
+    
     try:
         # 2. Проверка токена
         if not token:
             print("Ошибка: Токен отсутствует")
+            await websocket.close(code=1008) # 1008: Policy Violation
+            return
+
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            userid = int(payload.get("sub"))
+        except jwt.ExpiredSignatureError:
+            print("Ошибка: Токен просрочен")
+            await websocket.close(code=1008)
+            return
+        except jwt.InvalidTokenError:
+            print("Ошибка: Неверный токен")
             await websocket.close(code=1008)
             return
 
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        userid = int(payload.get("sub"))
-
-        with Session(engine) as s:
-            existing = s.exec(select(RoomMember).where(RoomMember.user_id == userid, RoomMember.room == room)).first()
-            if not existing:
-                s.add(RoomMember(user_id=userid, room=room))
-                s.commit()
-        
-        # 3. Получаем display_name (безопасно)
+        # 3. Проверка участия в комнате и получение имени пользователя
         display_name = ""
         try:
             with Session(engine) as s:
-                user = s.get(User, userid) 
-                if user:
-                    # Берем display_name, если нет - логин, если нет - пусто
-                    display_name = getattr(user, 'display_name', '') or getattr(user, 'username', '') or ""
-        except Exception as db_e:
-            print(f"Ошибка получения имени из БД: {db_e}")
+                user = s.get(User, userid) # Получаем объект User
+                if not user:
+                    print(f"Ошибка: Пользователь с ID {userid} не найден")
+                    await websocket.close(code=1008)
+                    return
 
-        # 4. ЦИКЛ СООБЩЕНИЙ
+                # Проверяем, состоит ли пользователь в этой комнате
+                room_member = s.exec(
+                    select(RoomMember).where(RoomMember.user_id == userid, RoomMember.room == room)
+                ).first()
+                if not room_member:
+                    print(f"Ошибка: Пользователь {userid} не является членом комнаты {room}")
+                    await websocket.close(code=1008)
+                    return
+
+                # Берем display_name, если нет - логин, если нет - пусто
+                display_name = getattr(user, 'display_name', '') or getattr(user, 'username', '') or ""
+        except Exception as db_e:
+            print(f"Ошибка получения данных пользователя или проверки комнаты: {db_e}")
+            await websocket.close(code=1011) # 1011: Internal Error
+            return
+
+        # 4. ЦИКЛ ОБРАБОТКИ СООБЩЕНИЙ
         while True:
             try:
-                # Ждем данные
-                data = await websocket.receive_json()
+                message = await websocket.receive_text() # Используем receive_text для сырых данных
+                data = json.loads(message) # Парсим JSON
                 print(f"Получены данные: {data}")
             except Exception as e:
-                print(f"Ошибка receive_json (клиент закрыл вкладку?): {e}")
-                break
+                print(f"Ошибка receive_text/json (клиент закрыл вкладку?): {e}")
+                break # Выходим из цикла, если получили некорректные данные или соединение закрыто
 
+            # --- ОБРАБОТКА СИГНАЛА ЗВОНКА ---
+            if data.get("type") == "call_signal":
+                # Пересылаем сигнал другим клиентам в той же комнате
+                # Важно: broadcast должен принять строку JSON, а не словарь, если он это ожидает
+                await manager.broadcast(room, message, exclude_websocket=websocket) 
+                continue # Пропускаем остальную обработку для сигналов звонка
+
+            # --- Обработка обычных сообщений ---
             text = data.get("text")
             file_url = data.get("file_url")
 
-            # 5. СОХРАНЕНИЕ В БАЗУ (с защитой от вылета)
+            # 5. СОХРАНЕНИЕ В БАЗУ
             new_id = 0
             iso_date = datetime.utcnow().isoformat()
             
             try:
-                msg = Message(
-                    sender_id=userid,
-                    room=room,
-                    text=text,
-                    file_path=file_url
-                )
+                # Используем model_dump() для Pydantic моделей или .dict() для SQLAlchemy Declarative
+                # Предполагаем, что Message - это Pydantic модель или SQLAlchemy Declarative
+                msg_data = {
+                    "sender_id": userid,
+                    "room": room,
+                    "text": text,
+                    "file_path": file_url # Используем file_path для сохранения URL
+                }
+                # Если Message - Pydantic модель:
+                # msg = Message(**msg_data)
+                # with Session(engine) as s:
+                #     s.add(msg)
+                #     s.commit()
+                #     s.refresh(msg)
+                #     new_id = msg.id
+                #     if msg.created_at: iso_date = msg.created_at.isoformat()
+                
+                # Если Message - SQLAlchemy Declarative:
+                msg = Message(**msg_data)
                 with Session(engine) as s:
                     s.add(msg)
                     s.commit()
                     s.refresh(msg)
                     new_id = msg.id
-                    if msg.created_at:
-                        iso_date = msg.created_at.isoformat()
+                    if msg.created_at: iso_date = msg.created_at.isoformat()
+
             except Exception as db_save_e:
                 print(f"ОШИБКА СОХРАНЕНИЯ В БД: {db_save_e}")
-                # Даже если БД упала, сообщение отправим в чат (без сохранения)
-                new_id = 999 
+                new_id = 999 # Отмечаем как "не сохранено" или другое значение
 
-            # 6. РАССЫЛКА (Broadcast)
+            # 6. РАССЫЛКА (Broadcast) сообщений другим клиентам
             out_payload = {
                 "id": new_id,
                 "sender_id": userid,
-                "display_name": user.display_name,
+                "display_name": display_name, # Используем имя, полученное ранее
                 "room": room,
                 "text": text,
                 "file_url": file_url,
                 "created_at": iso_date
             }
             
+            # Рассылаем сообщение всем в той же комнате
+            await manager.broadcast(room, out_payload, exclude_websocket=websocket) # Исключаем отправителя, чтобы он не получил свое сообщение обратно
+            
             print(f"Рассылка сообщения: {out_payload}")
-            await manager.broadcast(room, out_payload)
 
+            # 7. Отправка пуш-уведомлений (если есть функция)
             try:
+                # Убедись, что функция send_push_notification доступна и принимает нужные аргументы
                 await send_push_notification(room, display_name, text, file_url, exclude_id=userid)
                 print(f"Пуш-уведомление отправлено для комнаты {room}")
             except Exception as push_e:
@@ -539,8 +583,15 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
         print(f"--- [WS DISCONNECT] Room: {room} ---")
     except Exception as global_e:
         print(f"ГЛОБАЛЬНАЯ ОШИБКА WS: {global_e}")
+        # Если произошла глобальная ошибка, закрываем соединение
+        try:
+            await websocket.close(code=1011) # 1011: Internal Error
+        except Exception as close_e:
+            print(f"Ошибка при закрытии WS после глобальной ошибки: {close_e}")
     finally:
+        # 8. ОТКЛЮЧЕНИЕ
         manager.disconnect(room, websocket)
+        print(f"--- [WS DISCONNECTED] Room: {room} ---")
 
 async def send_push_notification(room, sender_name, text, file_url=None, exclude_id=None):
     try:
