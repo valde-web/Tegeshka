@@ -526,9 +526,8 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
 
             # --- ОБРАБОТКА СИГНАЛОВ ЗВОНКА (WebRTC) ---
             if data.get("type") == "call_signal":
-                # Рассылаем payload звонка как есть, исключая отправителя
                 await manager.broadcast(room, data, exclude_websocket=websocket)
-                continue # Пропускаем остальную логику для сигналов звонка
+                continue
 
             # --- ОБРАБОТКА ОБЫЧНЫХ ТЕКСТОВЫХ/ФАЙЛОВЫХ СООБЩЕНИЙ ---
             text = data.get("text")
