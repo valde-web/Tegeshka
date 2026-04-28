@@ -502,7 +502,7 @@ async def websocket_endpoint(websocket: WebSocket, room: str, token: str = None)
         # 4. ЦИКЛ ОБРАБОТКИ СООБЩЕНИЙ
         while True:
             try:
-                message = await websocket.receive_text() # Используем receive_text для сырых данных
+                message = await websocket.receive_json() # Используем receive_text для сырых данных
                 data = json.loads(message) # Парсим JSON
                 print(f"Получены данные: {data}")
             except Exception as e:
