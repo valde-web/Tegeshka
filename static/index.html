@@ -574,7 +574,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sendBtn = document.getElementById('send');
     window.toggleAudio = function() { };
     window.toggleVideo = function() { };
-    let ws = null; 
+    window.ws = null; 
     let tokenValue = localStorage.getItem('accesstoken'); 
     
 function validateTokenAndUpdateUI() {
@@ -587,14 +587,6 @@ function validateTokenAndUpdateUI() {
         // Если токена нет — показываем вход
         showOnlyAuth();
     }
-}
-
-if (typeof window.showChatInfo !== 'function') {
-    window.showChatInfo = function(msg, type) {
-        console.log(`[${type}] ${msg}`);
-        // Можно заменить на обычный alert, если хочешь видеть ошибки
-        // alert(msg); 
-    };
 }
 
 // 2. Функция: Показать только ЧАТ
@@ -672,7 +664,7 @@ window.connectWS = function(roomNameFromParam = null) {
     const tokenValue = localStorage.getItem('accesstoken');
 
     if (!tokenValue || tokenValue === 'null') {
-        if (typeof showChatInfo === 'function') showChatInfo('Нет токена — войдите в систему', 'error');
+        showChatInfo('Нет токена — войдите в систему', 'error');
         return;
     }
 
@@ -685,32 +677,30 @@ window.connectWS = function(roomNameFromParam = null) {
     const base = proto + '//' + location.host;
     const wsUrl = base + '/ws/' + encodeURIComponent(roomName) + '?token=' + encodeURIComponent(tokenValue);
 
-    if (ws) {
+    if (window.ws) {
         // Если мы уже подключены именно к ЭТОЙ комнате — ничего не делаем
-        if (ws.url.includes('/ws/' + encodeURIComponent(roomName))) {
+        if (window.ws.url.includes('/ws/' + encodeURIComponent(roomName))) {
             console.log("Уже подключены к комнате:", roomName);
-            // При смене чата, даже если комната та же, обновим кнопку звонка
             updateCallButton(); 
             return;
         } 
         // Если мы подключены к ДРУГОЙ комнате — закрываем старую
         console.log("Смена чата: закрываем старое соединение...");
-        ws.close(1000, "Переключение комнаты"); 
-        ws = null;
-        // При смене чата, очищаем потоки звонка, если они были активны
+        window.ws.close(1000, "Переключение комнаты"); 
+        window.ws = null; // Обнуляем после закрытия
         stopAllTracks(); 
     }
 
     try {
         console.log("Попытка подключения к WebSocket:", wsUrl);
-        ws = new WebSocket(wsUrl);
+        window.ws = new WebSocket(wsUrl); // Присваиваем глобальной переменной
     } catch (err) {
         console.error('WS init error', err);
         showChatInfo('Не удалось создать WebSocket', 'error');
         return;
     }
 
-    ws.onopen = () => {
+    window.ws.onopen = () => {
         console.log("WebSocket успешно открыт для комнаты:", roomName);
         const msgDiv = document.getElementById('messages');
         if (msgDiv) {
@@ -719,25 +709,26 @@ window.connectWS = function(roomNameFromParam = null) {
         if (typeof window.loadHistory === 'function') {
             window.loadHistory(roomName); 
         }
-        appendMessage('Вы вошли в чат', 'system');
-        updateCallButton(); // Обновим кнопку звонка после открытия чата
+        // appendMessage('Вы вошли в чат', 'system'); // Эта функция может быть недоступна
+        showChatInfo('Вы вошли в чат', 'info'); // Используем showChatInfo
+        updateCallButton(); 
     };
 
-    ws.onmessage = (ev) => { // Параметр 'ev'
-        // --- ИСПРАВЛЕНИЕ: Используем 'ev.data' вместо 'event.data' ---
+    window.ws.onmessage = (ev) => { 
         try {
             const data = JSON.parse(ev.data); 
             
+            // --- ОБРАБОТКА СИГНАЛОВ ЗВОНКА ---
             if (data.type === 'call_signal') {
                 handleCallSignal(data);
                 return;
             }
 
-            // Обработка обычных сообщений
-            const j = data; // Так как data уже распарсенный JSON
+            // --- ОБРАБОТКА ОБЫЧНЫХ СООБЩЕНИЙ ---
+            const j = data; 
             const myId = localStorage.getItem('myId');
             if (String(j.sender_id) !== String(myId)) {
-                const audioNotify = new Audio('/static/zvukTG.mp3'); // Проверь путь к файлу
+                const audioNotify = new Audio('/static/zvukTG.mp3'); 
                 audioNotify.volume = 0.5;
                 audioNotify.play().catch(e => console.log("Звук заблокирован:", e));
             }
@@ -746,30 +737,34 @@ window.connectWS = function(roomNameFromParam = null) {
             }
         } catch (e) {
             console.error("Ошибка парсинга JSON или обработки сообщения:", e);
-            // Если это не JSON, то это может быть системное сообщение
+            // Если это не JSON, то это может быть системное сообщение (или просто ошибка)
             const sysMsg = document.createElement('div');
             sysMsg.style.cssText = "text-align:center; color:#888; font-size: 0.9em; margin:10px 0; width:100%;";
-            sysMsg.textContent = ev.data;
+            sysMsg.textContent = ev.data; // Показываем как есть
             const msgDiv = document.getElementById('messages');
             if (msgDiv) msgDiv.appendChild(sysMsg);
         }
     };
 
-    ws.onclose = (ev) => {
+    window.ws.onclose = (ev) => {
         console.log("WS закрыт. Код:", ev.code);
-        if (ev.code !== 1000 && ev.code !== 1005) { // 1000: Normal Closure, 1005: No Status Received
-            appendMessage('Соединение разорвано', 'system');
+        // Код 1000 - нормальное закрытие, 1005 - нет кода статуса (часто тоже нормальное)
+        // Если это не эти коды, то это неожиданное закрытие (как 1006)
+        if (ev.code !== 1000 && ev.code !== 1005) { 
+            showChatInfo(`Соединение разорвано: Код ${ev.code}.`, 'error');
+        } else {
+            // showChatInfo('Соединение закрыто.', 'info'); // Не спамить
         }
-        ws = null;
-        stopAllTracks(); // При закрытии WS завершаем звонок
-        updateCallButton(); // Скрываем кнопку звонка
+        window.ws = null; // Важно: обнуляем глобальную переменную
+        stopAllTracks(); 
+        updateCallButton(); 
     };
 
-    ws.onerror = (e) => {
+    window.ws.onerror = (e) => {
         console.error('WS error', e);
         showChatInfo('Произошла ошибка WebSocket', 'error');
     };
-}
+};
 
    async function searchUsers() {
        const q = document.getElementById('userSearchInput').value;
@@ -1516,14 +1511,21 @@ window.selectUser = function(targetId, targetName) {
 };
 
 
-let localStream;
-let peerConnection;
-let isScreenSharing = false;
+window.localStream = null;
+window.peerConnection = null;
+window.isScreenSharing = false;
 
-// Конфигурация STUN-сервера (чтобы пробивать NAT)
 const rtcConfig = {
     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
 };
+
+// --- ГАРАНТИЯ НАЛИЧИЯ showChatInfo (из предыдущего ответа) ---
+if (typeof window.showChatInfo !== 'function') {
+    window.showChatInfo = function(msg, type) {
+        console.log(`[${type}] ${msg}`);
+        // alert(msg); // Можно раскомментировать для отладки
+    };
+}
 
 // Функция показа кнопки вызова (вызывать при открытии чата)
 function updateCallButton() {
