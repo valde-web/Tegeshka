@@ -483,10 +483,10 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
         <video id="local-video" autoplay muted playsinline></video>
     </div>
     <div class="call-controls">
-        <button class="call-btn btn-mute" onclick="toggleMute()" title="Микрофон"><img src="https://s.fotora.ru/cb89d6c22bf9d062.png" width="20"></button>
-        <button class="call-btn btn-camera" onclick="toggleCamera()" title="Камера"><img src="https://s.fotora.ru/816fd3692efab9c4.png" width="20"></button>
-        <button class="call-btn btn-screen" onclick="toggleScreenShare()" title="Экран"><img src="https://s.fotora.ru/1d29182e85c24e3e.png" width="20"></button>
-        <button class="call-btn btn-hangup" onclick="hangup()" title="Завершить"><img src="https://s.fotora.ru/3a00c1be9ec0baa7.png" width="20" style="transform: rotate(135deg);"></button>
+        <button class="call-btn btn-mute" onclick="toggleMute()" title="Микрофон"><img src="https://s.fotora.ru/6a9ab2c6a89bdc25.png" width="20"></button>
+        <button class="call-btn btn-camera" onclick="toggleCamera()" title="Камера"><img src="https://s.fotora.ru/81a305cbb4215591.png" width="20"></button>
+        <button class="call-btn btn-screen" onclick="toggleScreenShare()" title="Демонстрация экрана"><img src="https://s.fotora.ru/e03f438754ed13b6.png" width="20"></button>
+        <button class="call-btn btn-hangup" onclick="hangup()" title="Завершить звонок"><img src="https://s.fotora.ru/7caf2299f543c8dd.png" width="20"></button>
     </div>
 </div>
 <!-- Модалка входящего вызова -->
@@ -1107,10 +1107,9 @@ if (logoutBtn) {
 async function sendMessage() { 
     const tokenValue = localStorage.getItem('accesstoken');
     
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
+    if (!window.ws || window.ws.readyState !== WebSocket.OPEN) {
         showChatInfo('Сначала подключитесь к чату!', 'error');
-        // Добавим более специфичное сообщение, если сокет подключается
-        if (ws && ws.readyState === WebSocket.CONNECTING) {
+        if (window.ws && window.ws.readyState === WebSocket.CONNECTING) {
             showChatInfo('Соединение устанавливается, подождите...', 'info');
         }
         return;
@@ -1200,7 +1199,25 @@ async function sendMessage() {
 
     try {
         // console.log('OUT WS payload', payload);
-        ws.send(JSON.stringify(payload));
+        window.ws.send(JSON.stringify(payload));
+        const myId = localStorage.getItem('myId');
+        const myDisplayName = document.getElementById('currentDisplayName').innerText;
+        const messageToRender = {
+            id: 'temp-' + Date.now(), // Временный ID для отрисовки
+            sender_id: parseInt(myId),
+            display_name: myDisplayName,
+            room: currentRoomName,
+            text: text,
+            file_url: file_url,
+            created_at: new Date().toISOString()
+        };
+        if (typeof window.renderMessage === 'function') {
+            window.renderMessage(messageToRender);
+        } else if (typeof renderMessage === 'function') {
+            renderMessage(messageToRender);
+        } else {
+            console.error("Функция отрисовки сообщений (renderMessage) не найдена!");
+        }
         if (textEl) {
             textEl.value = ''; // Стираем текст в поле ввода
             if (typeof autoResize === 'function') { // Проверяем, что autoResize существует
