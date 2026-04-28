@@ -576,7 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.toggleVideo = function() { };
     let ws = null; 
     let tokenValue = localStorage.getItem('accesstoken'); 
-    // 1. Главная функция переключения интерфейса
+    
 function validateTokenAndUpdateUI() {
     const token = localStorage.getItem('accesstoken');
     
@@ -587,6 +587,14 @@ function validateTokenAndUpdateUI() {
         // Если токена нет — показываем вход
         showOnlyAuth();
     }
+}
+
+if (typeof window.showChatInfo !== 'function') {
+    window.showChatInfo = function(msg, type) {
+        console.log(`[${type}] ${msg}`);
+        // Можно заменить на обычный alert, если хочешь видеть ошибки
+        // alert(msg); 
+    };
 }
 
 // 2. Функция: Показать только ЧАТ
@@ -1520,79 +1528,81 @@ const rtcConfig = {
 // Функция показа кнопки вызова (вызывать при открытии чата)
 function updateCallButton() {
     const btn = document.getElementById('startCallBtn');
-    const room = document.getElementById('room').value;
-    // Показываем кнопку только если это P2P чат
+    const roomInput = document.getElementById('room');
+    if (!btn || !roomInput) return;
+    
+    const room = roomInput.value;
+    // Показываем трубку только в P2P чатах
     btn.style.display = room.startsWith('p2p_') ? 'block' : 'none';
 }
 
-// 1. Инициация звонка
 async function initiateCall() {
+    console.log("Инициация звонка...");
+    
+    // Проверка сокета
+    if (!window.ws || window.ws.readyState !== WebSocket.OPEN) {
+        showChatInfo("Ошибка: Нет подключения к серверу. Перезайдите в чат.", "error");
+        return;
+    }
+
     document.getElementById('call-overlay').style.display = 'flex';
     document.getElementById('call-status').innerText = "Вызов...";
     
     try {
         localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         document.getElementById('local-video').srcObject = localStream;
-        document.querySelector('.btn-mute').classList.remove('active'); // Активируем по умолчанию
-        document.querySelector('.btn-camera').classList.remove('active'); // Активируем по умолчанию
-        document.querySelector('.btn-screen').classList.remove('active'); // Выключаем демонстрацию экрана
 
-        if (!ws || ws.readyState !== WebSocket.OPEN) { // Проверка, что WS активен
-            showChatInfo('Ошибка: Нет активного соединения для звонка.', 'error');
-            stopAllTracks();
-            return;
-        }
-
-        // Отправляем сигнал "хочу позвонить" через твой WS
-        ws.send(JSON.stringify({
+        // Отправляем сигнал через глобальный ws
+        window.ws.send(JSON.stringify({
             type: 'call_signal',
             subtype: 'offer_request',
             room: document.getElementById('room').value
         }));
     } catch (err) {
         console.error("Ошибка доступа к камере:", err);
-        showChatInfo("Не удалось получить доступ к камере/микрофону. Проверьте разрешения.", 'error');
-        stopAllTracks(); // Закрываем оверлей звонка
+        showChatInfo("Не удалось включить камеру или микрофон", "error");
+        stopAllTracks();
     }
 }
 
 async function handleCallSignal(data) {
+    console.log("Получен сигнал звонка:", data.subtype);
+    
     switch (data.subtype) {
         case 'offer_request':
             document.getElementById('incoming-call-modal').style.display = 'block';
-            window.incomingCallData = data; // Сохраняем данные входящего звонка
+            window.incomingCallData = data;
             break;
             
         case 'webrtc_offer':
             if (!peerConnection) createPeerConnection();
-            document.getElementById('call-overlay').style.display = 'flex'; // Показываем оверлей
-            document.getElementById('call-status').innerText = "В разговоре";
+            document.getElementById('call-overlay').style.display = 'flex';
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    type: 'call_signal', subtype: 'webrtc_answer',
-                    answer: answer, room: data.room
-                }));
-            }
+            window.ws.send(JSON.stringify({
+                type: 'call_signal', subtype: 'webrtc_answer',
+                answer: answer, room: data.room
+            }));
             break;
 
         case 'webrtc_answer':
-            if (peerConnection) { // Проверка на существование peerConnection
-                 await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-                 document.getElementById('call-status').innerText = "В разговоре";
+            if (peerConnection) {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+                document.getElementById('call-status').innerText = "В разговоре";
             }
             break;
 
         case 'ice_candidate':
-            if (peerConnection && data.candidate) { // Проверка на существование peerConnection и кандидата
-                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            if (peerConnection && data.candidate) {
+                try {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+                } catch (e) { console.error("Ошибка добавления ICE:", e); }
             }
             break;
 
         case 'hangup':
-            showChatInfo('Собеседник завершил звонок.', 'info');
+            showChatInfo("Звонок завершен", "info");
             stopAllTracks();
             break;
     }
@@ -1601,54 +1611,48 @@ async function handleCallSignal(data) {
 async function acceptCall() {
     document.getElementById('incoming-call-modal').style.display = 'none';
     document.getElementById('call-overlay').style.display = 'flex';
-    document.getElementById('call-status').innerText = "Подключение...";
 
     try {
         localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         document.getElementById('local-video').srcObject = localStream;
-        document.querySelector('.btn-mute').classList.remove('active');
-        document.querySelector('.btn-camera').classList.remove('active');
-        document.querySelector('.btn-screen').classList.remove('active');
 
         createPeerConnection();
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
         
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-                type: 'call_signal', subtype: 'webrtc_offer',
-                offer: offer, room: window.incomingCallData.room
-            }));
-        }
+        window.ws.send(JSON.stringify({
+            type: 'call_signal', subtype: 'webrtc_offer',
+            offer: offer, room: window.incomingCallData.room
+        }));
         document.getElementById('call-status').innerText = "В разговоре";
     } catch (err) {
-        console.error("Ошибка при ответе на звонок:", err);
-        showChatInfo("Не удалось ответить на звонок. Проверьте разрешения.", 'error');
+        showChatInfo("Ошибка при ответе на звонок", "error");
         stopAllTracks();
     }
 }
 
 function rejectCall() {
     document.getElementById('incoming-call-modal').style.display = 'none';
-    // Отправляем сигнал отклонения звонка собеседнику
-    if (ws && ws.readyState === WebSocket.OPEN && window.incomingCallData) {
-        ws.send(JSON.stringify({
+    if (window.ws && window.incomingCallData) {
+        window.ws.send(JSON.stringify({
             type: 'call_signal', subtype: 'hangup',
-            room: window.incomingCallData.room // Отправляем сигнал в комнату входящего звонка
+            room: window.incomingCallData.room
         }));
     }
-    window.incomingCallData = null; // Очищаем данные о входящем звонке
-    showChatInfo('Вы отклонили звонок.', 'info');
 }
 
 function createPeerConnection() {
-    peerConnection = new RTCPeerConnection(rtcConfig);
+    peerConnection = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
     
-    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+    if (localStream) {
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+    }
 
     peerConnection.onicecandidate = (event) => {
-        if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
+        if (event.candidate && window.ws) {
+            window.ws.send(JSON.stringify({
                 type: 'call_signal', subtype: 'ice_candidate',
                 candidate: event.candidate, room: document.getElementById('room').value
             }));
@@ -1658,36 +1662,24 @@ function createPeerConnection() {
     peerConnection.ontrack = (event) => {
         document.getElementById('remote-video').srcObject = event.streams[0];
     };
-
-    peerConnection.onconnectionstatechange = (event) => {
-        console.log('RTC connection state:', peerConnection.connectionState);
-        if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
-            showChatInfo('Соединение звонка разорвано.', 'error');
-            stopAllTracks();
-        } else if (peerConnection.connectionState === 'connected') {
-            document.getElementById('call-status').innerText = "В разговоре";
-        }
-    };
 }
 
 // Управление медиа
 function toggleMute() {
-    if (!localStream || !peerConnection) return;
+    if (!localStream) return;
     const audioTrack = localStream.getAudioTracks()[0];
     if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         document.querySelector('.btn-mute').classList.toggle('active', !audioTrack.enabled);
-        showChatInfo(audioTrack.enabled ? 'Микрофон включен' : 'Микрофон выключен', 'info');
     }
 }
 
 function toggleCamera() {
-    if (!localStream || !peerConnection) return;
+    if (!localStream) return;
     const videoTrack = localStream.getVideoTracks()[0];
     if (videoTrack) {
         videoTrack.enabled = !videoTrack.enabled;
         document.querySelector('.btn-camera').classList.toggle('active', !videoTrack.enabled);
-        showChatInfo(videoTrack.enabled ? 'Камера включена' : 'Камера выключена', 'info');
     }
 }
 
