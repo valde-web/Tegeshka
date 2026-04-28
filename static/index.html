@@ -664,93 +664,102 @@ window.connectWS = function(roomNameFromParam = null) {
     const tokenValue = localStorage.getItem('accesstoken');
 
     if (!tokenValue || tokenValue === 'null') {
-    if (typeof showChatInfo === 'function') showChatInfo('Нет токена — войдите в систему', 'error');
-    return;
-}
+        if (typeof showChatInfo === 'function') showChatInfo('Нет токена — войдите в систему', 'error');
+        return;
+    }
 
-let roomName = roomNameFromParam;
+    let roomName = roomNameFromParam;
     if (!roomName) {
         const roomInput = document.getElementById('room');
         roomName = roomInput ? (roomInput.value || '1') : '1';
     }
-const proto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
-const base = proto + '//' + location.host;
-const wsUrl = base + '/ws/' + encodeURIComponent(roomName) + '?token=' + encodeURIComponent(tokenValue);
+    const proto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
+    const base = proto + '//' + location.host;
+    const wsUrl = base + '/ws/' + encodeURIComponent(roomName) + '?token=' + encodeURIComponent(tokenValue);
 
-if (ws) {
+    if (ws) {
         // Если мы уже подключены именно к ЭТОЙ комнате — ничего не делаем
         if (ws.url.includes('/ws/' + encodeURIComponent(roomName))) {
             console.log("Уже подключены к комнате:", roomName);
+            // При смене чата, даже если комната та же, обновим кнопку звонка
+            updateCallButton(); 
             return;
         } 
         // Если мы подключены к ДРУГОЙ комнате — закрываем старую
         console.log("Смена чата: закрываем старое соединение...");
         ws.close(1000, "Переключение комнаты"); 
         ws = null;
+        // При смене чата, очищаем потоки звонка, если они были активны
+        stopAllTracks(); 
     }
 
-try {
-    console.log("Попытка подключения к WebSocket:", wsUrl);
-    ws = new WebSocket(wsUrl);
-} catch (err) {
-    console.error('WS init error', err);
-    showChatInfo('Не удалось создать WebSocket', 'error');
-    return;
-}
-
-ws.onopen = () => {
-    console.log("WebSocket успешно открыт для комнаты:", roomName);
-    const msgDiv = document.getElementById('messages');
-    if (msgDiv) {
-        msgDiv.innerHTML = '<div style="text-align:center; color:#888; padding:20px;">Загрузка истории...</div>';
-    }
-    if (typeof window.loadHistory === 'function') {
-        window.loadHistory(roomName); 
-    }
-    appendMessage('Вы вошли в чат', 'system');
-};
-
-ws.onmessage = (ev) => {
-    const data = JSON.parse(event.data);
-    if (data.type === 'call_signal') {
-        handleCallSignal(data);
+    try {
+        console.log("Попытка подключения к WebSocket:", wsUrl);
+        ws = new WebSocket(wsUrl);
+    } catch (err) {
+        console.error('WS init error', err);
+        showChatInfo('Не удалось создать WebSocket', 'error');
         return;
     }
-    if (ev.data.startsWith('{')) {
+
+    ws.onopen = () => {
+        console.log("WebSocket успешно открыт для комнаты:", roomName);
+        const msgDiv = document.getElementById('messages');
+        if (msgDiv) {
+            msgDiv.innerHTML = '<div style="text-align:center; color:#888; padding:20px;">Загрузка истории...</div>';
+        }
+        if (typeof window.loadHistory === 'function') {
+            window.loadHistory(roomName); 
+        }
+        appendMessage('Вы вошли в чат', 'system');
+        updateCallButton(); // Обновим кнопку звонка после открытия чата
+    };
+
+    ws.onmessage = (ev) => { // Параметр 'ev'
+        // --- ИСПРАВЛЕНИЕ: Используем 'ev.data' вместо 'event.data' ---
         try {
-            const j = JSON.parse(ev.data);
+            const data = JSON.parse(ev.data); 
+            
+            if (data.type === 'call_signal') {
+                handleCallSignal(data);
+                return;
+            }
+
+            // Обработка обычных сообщений
+            const j = data; // Так как data уже распарсенный JSON
             const myId = localStorage.getItem('myId');
             if (String(j.sender_id) !== String(myId)) {
-                const audioNotify = new Audio('/static/zvukTG.mp3');
+                const audioNotify = new Audio('/static/zvukTG.mp3'); // Проверь путь к файлу
                 audioNotify.volume = 0.5;
-                audioNotify.play().catch(e => console.log("Звук заблокирован"));
+                audioNotify.play().catch(e => console.log("Звук заблокирован:", e));
             }
             if (typeof window.renderMessage === 'function') {
                 window.renderMessage(j);
             }
         } catch (e) {
-            console.error("Ошибка парсинга JSON:", e);
+            console.error("Ошибка парсинга JSON или обработки сообщения:", e);
+            // Если это не JSON, то это может быть системное сообщение
+            const sysMsg = document.createElement('div');
+            sysMsg.style.cssText = "text-align:center; color:#888; font-size: 0.9em; margin:10px 0; width:100%;";
+            sysMsg.textContent = ev.data;
+            const msgDiv = document.getElementById('messages');
+            if (msgDiv) msgDiv.appendChild(sysMsg);
         }
-    } else {
-        const sysMsg = document.createElement('div');
-        sysMsg.style.cssText = "text-align:center; color:#888; font-size: 0.9em; margin:10px 0; width:100%;";
-        sysMsg.textContent = ev.data;
-        const msgDiv = document.getElementById('messages');
-        if (msgDiv) msgDiv.appendChild(sysMsg);
-    }
-};
+    };
 
     ws.onclose = (ev) => {
         console.log("WS закрыт. Код:", ev.code);
-        // Если мы сами закрыли его для переключения (код 1000 или 1005), не спамим ошибками
-        if (ev.code !== 1000 && ev.code !== 1005) {
+        if (ev.code !== 1000 && ev.code !== 1005) { // 1000: Normal Closure, 1005: No Status Received
             appendMessage('Соединение разорвано', 'system');
-            ws = null;
         }
+        ws = null;
+        stopAllTracks(); // При закрытии WS завершаем звонок
+        updateCallButton(); // Скрываем кнопку звонка
     };
 
     ws.onerror = (e) => {
         console.error('WS error', e);
+        showChatInfo('Произошла ошибка WebSocket', 'error');
     };
 }
 
@@ -786,6 +795,7 @@ window.selectUser = function(targetId, targetName) {
 
     // Вызываем ТОЛЬКО подключение. История вызовется сама внутри.
     window.connectWS(room);
+    updateCallButton();
 };
 
 window.loadHistory = async function(room) {
@@ -1100,8 +1110,6 @@ async function sendMessage() {
     const fileEl = document.getElementById('file');
     const fileNameEl = document.getElementById('file-name');
     const sendBtn = document.getElementById('send');
-    // const roomInput = document.getElementById('room');
-    // const room = roomInput ? (roomInput.value || '1') : '1';
 
     let currentRoomName = '1'; // По умолчанию для общей комнаты
     if (ws && ws.url) {
@@ -1127,6 +1135,11 @@ async function sendMessage() {
 
     // 2. Логика загрузки файла (оставляем как была, она рабочая)
     if (fileEl && fileEl.files && fileEl.files.length > 0) {
+        if (!tokenValue) {
+            showChatInfo('Требуется авторизация (отсутствует токен)', 'error');
+            clearFileSelection();
+            return;
+        }
         const fd = new FormData();
         fd.append('file', fileEl.files[0]); 
         fd.append('token', tokenValue);
@@ -1137,7 +1150,7 @@ async function sendMessage() {
     }
 
         if (sendBtn) sendBtn.disabled = true;
-        // showChatInfo('Загрузка файла...', 'info');
+        showChatInfo('Загрузка файла...', 'info');
 
         try {
             const res = await fetch('/upload', {
@@ -1171,7 +1184,7 @@ async function sendMessage() {
     const payload = { 
         text: text, 
         file_url: file_url, 
-        room: room 
+        room: currentRoomName  
     };
 
     try {
@@ -1184,8 +1197,7 @@ async function sendMessage() {
         }
         if (fileEl) fileEl.value = '';  // Сбрасываем выбранный файл
         if (fileNameEl) fileNameEl.textContent = ''; // Стираем имя файла у скрепки
-        
-        // showChatInfo('Сообщение отправлено', 'success');
+        clearFileSelection();
 
     } catch (err) {
         console.error('WS send error:', err);
@@ -1411,6 +1423,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (authLayout) authLayout.style.display = 'block';
         if (mainLayout) mainLayout.style.display = 'none';
     }
+    updateCallButton(); 
 });
 
 // --- 2. ГЛОБАЛЬНАЯ ФУНКЦИЯ ПОИСКА ---
@@ -1520,6 +1533,15 @@ async function initiateCall() {
     try {
         localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         document.getElementById('local-video').srcObject = localStream;
+        document.querySelector('.btn-mute').classList.remove('active'); // Активируем по умолчанию
+        document.querySelector('.btn-camera').classList.remove('active'); // Активируем по умолчанию
+        document.querySelector('.btn-screen').classList.remove('active'); // Выключаем демонстрацию экрана
+
+        if (!ws || ws.readyState !== WebSocket.OPEN) { // Проверка, что WS активен
+            showChatInfo('Ошибка: Нет активного соединения для звонка.', 'error');
+            stopAllTracks();
+            return;
+        }
 
         // Отправляем сигнал "хочу позвонить" через твой WS
         ws.send(JSON.stringify({
@@ -1529,49 +1551,48 @@ async function initiateCall() {
         }));
     } catch (err) {
         console.error("Ошибка доступа к камере:", err);
-        alert("Не удалось получить доступ к камере/микрофону");
+        showChatInfo("Не удалось получить доступ к камере/микрофону. Проверьте разрешения.", 'error');
+        stopAllTracks(); // Закрываем оверлей звонка
     }
 }
-
-// 2. Обработка сигналов внутри твоего существующего ws.onmessage
-// Добавь это внутрь своей функции ws.onmessage:
-/*
-    const data = JSON.parse(event.data);
-    if (data.type === 'call_signal') {
-        handleCallSignal(data);
-        return;
-    }
-*/
 
 async function handleCallSignal(data) {
     switch (data.subtype) {
         case 'offer_request':
             document.getElementById('incoming-call-modal').style.display = 'block';
-            window.incomingCallData = data;
+            window.incomingCallData = data; // Сохраняем данные входящего звонка
             break;
             
         case 'webrtc_offer':
             if (!peerConnection) createPeerConnection();
+            document.getElementById('call-overlay').style.display = 'flex'; // Показываем оверлей
+            document.getElementById('call-status').innerText = "В разговоре";
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
-            ws.send(JSON.stringify({
-                type: 'call_signal', subtype: 'webrtc_answer',
-                answer: answer, room: data.room
-            }));
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'call_signal', subtype: 'webrtc_answer',
+                    answer: answer, room: data.room
+                }));
+            }
             break;
 
         case 'webrtc_answer':
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            if (peerConnection) { // Проверка на существование peerConnection
+                 await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+                 document.getElementById('call-status').innerText = "В разговоре";
+            }
             break;
 
         case 'ice_candidate':
-            if (peerConnection) {
+            if (peerConnection && data.candidate) { // Проверка на существование peerConnection и кандидата
                 await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
             }
             break;
 
         case 'hangup':
+            showChatInfo('Собеседник завершил звонок.', 'info');
             stopAllTracks();
             break;
     }
@@ -1580,19 +1601,44 @@ async function handleCallSignal(data) {
 async function acceptCall() {
     document.getElementById('incoming-call-modal').style.display = 'none';
     document.getElementById('call-overlay').style.display = 'flex';
-    document.getElementById('call-status').innerText = "В разговоре";
+    document.getElementById('call-status').innerText = "Подключение...";
 
-    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    document.getElementById('local-video').srcObject = localStream;
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        document.getElementById('local-video').srcObject = localStream;
+        document.querySelector('.btn-mute').classList.remove('active');
+        document.querySelector('.btn-camera').classList.remove('active');
+        document.querySelector('.btn-screen').classList.remove('active');
 
-    createPeerConnection();
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-    
-    ws.send(JSON.stringify({
-        type: 'call_signal', subtype: 'webrtc_offer',
-        offer: offer, room: window.incomingCallData.room
-    }));
+        createPeerConnection();
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'call_signal', subtype: 'webrtc_offer',
+                offer: offer, room: window.incomingCallData.room
+            }));
+        }
+        document.getElementById('call-status').innerText = "В разговоре";
+    } catch (err) {
+        console.error("Ошибка при ответе на звонок:", err);
+        showChatInfo("Не удалось ответить на звонок. Проверьте разрешения.", 'error');
+        stopAllTracks();
+    }
+}
+
+function rejectCall() {
+    document.getElementById('incoming-call-modal').style.display = 'none';
+    // Отправляем сигнал отклонения звонка собеседнику
+    if (ws && ws.readyState === WebSocket.OPEN && window.incomingCallData) {
+        ws.send(JSON.stringify({
+            type: 'call_signal', subtype: 'hangup',
+            room: window.incomingCallData.room // Отправляем сигнал в комнату входящего звонка
+        }));
+    }
+    window.incomingCallData = null; // Очищаем данные о входящем звонке
+    showChatInfo('Вы отклонили звонок.', 'info');
 }
 
 function createPeerConnection() {
@@ -1601,7 +1647,7 @@ function createPeerConnection() {
     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
     peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
+        if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({
                 type: 'call_signal', subtype: 'ice_candidate',
                 candidate: event.candidate, room: document.getElementById('room').value
@@ -1612,54 +1658,137 @@ function createPeerConnection() {
     peerConnection.ontrack = (event) => {
         document.getElementById('remote-video').srcObject = event.streams[0];
     };
+
+    peerConnection.onconnectionstatechange = (event) => {
+        console.log('RTC connection state:', peerConnection.connectionState);
+        if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
+            showChatInfo('Соединение звонка разорвано.', 'error');
+            stopAllTracks();
+        } else if (peerConnection.connectionState === 'connected') {
+            document.getElementById('call-status').innerText = "В разговоре";
+        }
+    };
 }
 
 // Управление медиа
 function toggleMute() {
+    if (!localStream || !peerConnection) return;
     const audioTrack = localStream.getAudioTracks()[0];
-    audioTrack.enabled = !audioTrack.enabled;
-    document.querySelector('.btn-mute').classList.toggle('active', !audioTrack.enabled);
+    if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        document.querySelector('.btn-mute').classList.toggle('active', !audioTrack.enabled);
+        showChatInfo(audioTrack.enabled ? 'Микрофон включен' : 'Микрофон выключен', 'info');
+    }
 }
 
 function toggleCamera() {
+    if (!localStream || !peerConnection) return;
     const videoTrack = localStream.getVideoTracks()[0];
-    videoTrack.enabled = !videoTrack.enabled;
-    document.querySelector('.btn-camera').classList.toggle('active', !videoTrack.enabled);
+    if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        document.querySelector('.btn-camera').classList.toggle('active', !videoTrack.enabled);
+        showChatInfo(videoTrack.enabled ? 'Камера включена' : 'Камера выключена', 'info');
+    }
 }
 
 async function toggleScreenShare() {
-    if (!isScreenSharing) {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        const videoTrack = screenStream.getVideoTracks()[0];
-        const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
-        sender.replaceTrack(videoTrack);
-        document.getElementById('local-video').srcObject = screenStream;
-        isScreenSharing = true;
-        
-        videoTrack.onended = () => toggleScreenShare(); // Возврат при остановке
-    } else {
-        const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        const videoTrack = videoStream.getVideoTracks()[0];
-        const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
-        sender.replaceTrack(videoTrack);
-        document.getElementById('local-video').srcObject = videoStream;
-        isScreenSharing = false;
+    if (!localStream || !peerConnection) {
+        console.warn("Невозможно начать демонстрацию экрана: звонок не активен.");
+        showChatInfo("Невозможно начать демонстрацию экрана: звонок не активен.", 'error');
+        return;
+    }
+
+    try {
+        if (!isScreenSharing) {
+            const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true }); // Включаем аудио для демонстрации
+            const videoTrack = screenStream.getVideoTracks()[0];
+            const audioTrack = screenStream.getAudioTracks()[0]; // Аудио с экрана
+            
+            const videoSender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+            const audioSender = peerConnection.getSenders().find(s => s.track.kind === 'audio' && s.track.label !== localStream.getAudioTracks()[0].label); // Ищем отправителя аудио для экрана
+            
+            if (videoSender) {
+                await videoSender.replaceTrack(videoTrack);
+                if (audioTrack) { // Если есть аудио с экрана, заменяем наш микрофон на него
+                    if (audioSender) {
+                        await audioSender.replaceTrack(audioTrack);
+                    } else { // Если отправителя аудио с экрана еще нет, добавляем его
+                        peerConnection.addTrack(audioTrack, screenStream);
+                    }
+                }
+                
+                document.getElementById('local-video').srcObject = screenStream;
+                isScreenSharing = true;
+                document.querySelector('.btn-screen').classList.add('active');
+                showChatInfo('Демонстрация экрана началась.', 'info');
+                
+                videoTrack.onended = () => {
+                    if (isScreenSharing) toggleScreenShare(); 
+                };
+            } else {
+                 console.error("Не найден видео отправитель для замены.");
+                 screenStream.getTracks().forEach(track => track.stop());
+            }
+        } else {
+            // Возвращаемся к камере и микрофону
+            const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            const videoTrack = mediaStream.getVideoTracks()[0];
+            const audioTrack = mediaStream.getAudioTracks()[0]; // Наш микрофон
+
+            const videoSender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+            const audioSender = peerConnection.getSenders().find(s => s.track.kind === 'audio'); // Наш микрофон
+            
+            if (videoSender) {
+                await videoSender.replaceTrack(videoTrack);
+                if (audioSender) await audioSender.replaceTrack(audioTrack); // Заменяем аудио на микрофон
+                
+                document.getElementById('local-video').srcObject = mediaStream;
+                isScreenSharing = false;
+                document.querySelector('.btn-screen').classList.remove('active');
+                showChatInfo('Демонстрация экрана завершена, возвращаемся к камере.', 'info');
+            } else {
+                console.error("Не найден видео отправитель для замены (возврат к камере).");
+                mediaStream.getTracks().forEach(track => track.stop());
+            }
+        }
+    } catch (err) {
+        console.error("Ошибка при демонстрации экрана:", err);
+        showChatInfo('Ошибка при демонстрации экрана: ' + err.message, 'error');
+        if (isScreenSharing) isScreenSharing = false;
+        document.querySelector('.btn-screen').classList.remove('active');
     }
 }
 
 function hangup() {
-    ws.send(JSON.stringify({
-        type: 'call_signal', subtype: 'hangup',
-        room: document.getElementById('room').value
-    }));
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+            type: 'call_signal', subtype: 'hangup',
+            room: document.getElementById('room').value
+        }));
+    }
+    showChatInfo('Вы завершили звонок.', 'info');
     stopAllTracks();
 }
 
 function stopAllTracks() {
-    if (localStream) localStream.getTracks().forEach(track => track.stop());
-    if (peerConnection) peerConnection.close();
-    peerConnection = null;
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
     document.getElementById('call-overlay').style.display = 'none';
+    document.getElementById('incoming-call-modal').style.display = 'none';
+    isScreenSharing = false;
+    // Сброс состояния кнопок
+    document.querySelector('.btn-mute')?.classList.remove('active');
+    document.querySelector('.btn-camera')?.classList.remove('active');
+    document.querySelector('.btn-screen')?.classList.remove('active');
+    // Очистка видеопотоков на элементах
+    document.getElementById('local-video').srcObject = null;
+    document.getElementById('remote-video').srcObject = null;
 }
 </script>
 </body>
