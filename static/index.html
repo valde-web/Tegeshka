@@ -1077,27 +1077,78 @@ window.renderMessage = function(j) {
     }
 };
 
-// ИСПРАВЛЕННЫЙ ВЫХОД
+// ВЫХОД
+document.getElementById('logoutBtn').addEventListener('click', () => {
+    // 1. Удаляем все данные из браузера
+    localStorage.removeItem('accesstoken');
+    localStorage.removeItem('myId');
+    localStorage.removeItem('myUsername');
+    // Можно просто localStorage.clear(); если там нет ничего важного
+
+    // 2. Закрываем WebSocket, если он открыт
+    if (window.ws) {
+        window.ws.close();
+        window.ws = null;
+    }
+
+    // 3. Скрываем весь основной интерфейс (и сайдбар, и чат)
+    document.getElementById('main-layout').style.display = 'none';
+
+    // 4. Показываем блок авторизации
+    // ВАЖНО: Убедись, что у твоего блока с логином/регистрацией id="auth-card"
+    const authCard = document.getElementById('auth-card');
+    if (authCard) {
+        authCard.style.display = 'block';
+    }
+
+    // 5. Сбрасываем содержимое чата (на всякий случай)
+    document.getElementById('messages').innerHTML = '';
+    document.getElementById('chatsList').innerHTML = '';
+    document.getElementById('currentChatName').innerText = 'Выберите чат слева';
+});
+
 if (logoutBtn) { 
     logoutBtn.addEventListener('click', (e) => { 
         e.preventDefault();
-        if (ws) { 
-            try { ws.close(); } catch (ex) { } 
-            ws = null; 
-        } 
-        tokenValue = null; 
-        localStorage.removeItem('accesstoken'); 
 
+        // 1. Закрываем WebSocket (используем window.ws для надежности)
+        if (window.ws) { 
+            try { 
+                // Отключаем обработчик onclose перед закрытием, чтобы не вылетало системное сообщение
+                window.ws.onclose = null; 
+                window.ws.close(1000, "User logout"); 
+            } catch (ex) { console.error("Ошибка при закрытии WS:", ex); } 
+            window.ws = null; 
+        } 
+
+        // 2. Очищаем данные авторизации
+        localStorage.removeItem('accesstoken'); 
+        localStorage.removeItem('myId');
+        // Если есть другие данные, например имя комнаты:
+        // localStorage.removeItem('lastRoom'); 
+
+        // 3. Сбрасываем интерфейс
         if (displayNameEl) {
             displayNameEl.style.display = 'none';
-            displayNameEl.value = ''; 
+            displayNameEl.innerText = ''; // Если это div/span
+            // или displayNameEl.value = ''; если это input
         }
         
-        appendMessage('Выход из чата. Соединение разорвано', 'system'); 
-        showOnlyAuth(); 
-        
+        // Очищаем список сообщений, чтобы новый пользователь не видел старую переписку
+        const msgDiv = document.getElementById('messages');
+        if (msgDiv) msgDiv.innerHTML = '';
+
         if (usernameEl) usernameEl.value = '';
         if (passwordEl) passwordEl.value = '';
+
+        // 4. Показываем экран логина
+        appendMessage('Вы вышли из системы', 'system'); 
+        if (typeof showOnlyAuth === 'function') {
+            showOnlyAuth(); 
+        } else {
+            // Если функции нет, просто перезагружаем страницу для полной очистки
+            location.reload();
+        }
     }); 
 }
 
