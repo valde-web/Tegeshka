@@ -790,34 +790,6 @@ window.connectWS = function(roomNameFromParam = null) {
        });
    }
 
-window.selectUser = function(targetId, targetName) {
-    const myId = localStorage.getItem('myId');
-    const room = Number(myId) < Number(targetId) 
-        ? `p2p_${myId}_${targetId}` 
-        : `p2p_${targetId}_${myId}`;
-
-    window.currentRoomName = room; 
-
-    document.getElementById('currentChatName').innerText = targetName;
-    const roomInput = document.getElementById('room');
-    if (roomInput) roomInput.value = room;
-
-    const msgDiv = document.getElementById('messages');
-    if (msgDiv) msgDiv.innerHTML = '<div style="text-align:center; color:#888; padding:20px;">Загрузка истории...</div>';
-
-    // 4. Загружаем историю через HTTP (не ждем сокета)
-    await window.loadHistory(room);
-
-    // 5. Подключаем сокет (он просто будет слушать новые сообщения)
-    if (typeof window.connectWS === 'function') {
-        window.connectWS(room);
-    }
-    
-    // Обновляем кнопку звонка
-    if (typeof updateCallButton === 'function') updateCallButton();
-};
-};
-
 window.loadHistory = async function(room) {
     const msgDiv = document.getElementById('messages');
     try {
@@ -1167,7 +1139,6 @@ if (logoutBtn) {
         }
     }); 
 }
-
 
 async function sendMessage() { 
     const tokenValue = localStorage.getItem('accesstoken');
@@ -1628,7 +1599,6 @@ window.selectUser = function(targetId, targetName) {
         console.error("Функция loadHistory не найдена!");
     }
 };
-
 
 window.localStream = null;
 window.peerConnection = null;
