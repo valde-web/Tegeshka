@@ -796,13 +796,26 @@ window.selectUser = function(targetId, targetName) {
         ? `p2p_${myId}_${targetId}` 
         : `p2p_${targetId}_${myId}`;
 
+    window.currentRoomName = room; 
+
     document.getElementById('currentChatName').innerText = targetName;
     const roomInput = document.getElementById('room');
     if (roomInput) roomInput.value = room;
 
-    // Вызываем ТОЛЬКО подключение. История вызовется сама внутри.
-    window.connectWS(room);
-    updateCallButton();
+    const msgDiv = document.getElementById('messages');
+    if (msgDiv) msgDiv.innerHTML = '<div style="text-align:center; color:#888; padding:20px;">Загрузка истории...</div>';
+
+    // 4. Загружаем историю через HTTP (не ждем сокета)
+    await window.loadHistory(room);
+
+    // 5. Подключаем сокет (он просто будет слушать новые сообщения)
+    if (typeof window.connectWS === 'function') {
+        window.connectWS(room);
+    }
+    
+    // Обновляем кнопку звонка
+    if (typeof updateCallButton === 'function') updateCallButton();
+};
 };
 
 window.loadHistory = async function(room) {
@@ -1256,7 +1269,7 @@ async function sendMessage() {
         const myDisplayName = document.getElementById('currentChatName').innerText;
         const messageToRender = {
             id: 'temp-' + Date.now(), // Временный ID для отрисовки
-            sender_id: parseInt(myId),
+            sender_id: myId,
             display_name: myDisplayName,
             room: currentRoomName,
             text: text,
