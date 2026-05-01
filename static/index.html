@@ -1023,7 +1023,7 @@ window.renderMessage = function(j) {
         const isVoice = messageText === '__voice__';
         const isVideo = messageText === '__video__';
 
-        if (j.file_url) {
+        if (fileUrl) {
             const urlLower = fileUrl.toLowerCase();
             const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(urlLower);
 
