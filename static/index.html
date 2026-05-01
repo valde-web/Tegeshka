@@ -1574,30 +1574,35 @@ window.searchUsers = async function() {
     }
 };
 
-window.selectUser = function(targetId, targetName) {
+window.selectUser = async function(targetId, targetName) {
     const myId = localStorage.getItem('myId');
-    if (!myId) return alert("Авторизуйтесь заново");
-
-    // И ТУТ ОБРАТНЫЕ КАВЫЧКИ ` ` для формирования ID комнаты
+    if (!myId) return;
     const room = Number(myId) < Number(targetId) 
         ? `p2p_${myId}_${targetId}` 
         : `p2p_${targetId}_${myId}`;
 
+    // Сохраняем в глобальную переменную для других функций
+    window.currentRoomName = room; 
+
+    // 2. Обновляем интерфейс СРАЗУ
+    document.getElementById('currentChatName').innerText = targetName;
     const roomInput = document.getElementById('room');
     if (roomInput) roomInput.value = room;
 
-    const chatTitle = document.getElementById('currentChatName');
-    if (chatTitle) chatTitle.innerText = "Чат с: " + targetName;
+    // 3. Очищаем старые сообщения и показываем лоадер, чтобы юзер видел отклик
+    const msgDiv = document.getElementById('messages');
+    if (msgDiv) msgDiv.innerHTML = '<div style="text-align:center; color:#888; padding:20px;">Загрузка истории...</div>';
 
-    // 1. Сначала подключаем сокет
-    window.connectWS(room); 
+    // 4. Загружаем историю через HTTP (не ждем сокета)
+    await window.loadHistory(room);
 
-    // 2. СРАЗУ загружаем историю (не ждем второго клика)
-    if (typeof window.loadHistory === 'function') {
-        window.loadHistory(room);
-    } else {
-        console.error("Функция loadHistory не найдена!");
+    // 5. Подключаем сокет (он просто будет слушать новые сообщения)
+    if (typeof window.connectWS === 'function') {
+        window.connectWS(room);
     }
+    
+    // Обновляем кнопку звонка
+    if (typeof updateCallButton === 'function') updateCallButton();
 };
 
 window.localStream = null;
