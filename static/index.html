@@ -730,26 +730,27 @@ window.connectWS = function(roomNameFromParam = null) {
             // 2. Если это обычное сообщение
             // Проверяем, что это объект сообщения (есть текст или файл)
             if (data.sender_id || data.text || data.file_url) {
-                // Звуковое уведомление
-                const myId = localStorage.getItem('myId');
-                if (String(data.sender_id) !== String(myId)) {
-                    const audioNotify = new Audio('/static/zvukTG.mp3');
-                    audioNotify.volume = 0.5;
-                    audioNotify.play().catch(e => console.log("Звук заблокирован"));
-                }
+            const myId = localStorage.getItem('myId');
+            const isMe = String(data.sender_id) === String(myId);
 
-                // ВАЖНО: Прямая отрисовка, если renderMessage не срабатывает автоматически
+            // Если сообщение от меня, и оно уже есть на экране (через temp_id), 
+            // то просто игнорируем или обновляем статус.
+            // Но для простоты: если сообщение от другого — играем звук и рисуем.
+            if (!isMe) {
+                const audioNotify = new Audio('/static/zvukTG.mp3');
+                audioNotify.volume = 0.5;
+                audioNotify.play().catch(e => console.log("Звук заблокирован"));
+                
                 if (typeof window.renderMessage === 'function') {
                     window.renderMessage(data);
-                } else if (typeof renderMessage === 'function') {
-                    renderMessage(data);
-                } else {
-                    console.error("Функция отрисовки сообщений (renderMessage) не найдена!");
                 }
+            } else {
+                // window.renderMessage(data); // Раскомментируй, если оптимистичная отрисовка не нужна
             }
-        } catch (e) {
-            console.error("Ошибка при обработке сообщения WS:", e, ev.data);
         }
+    } catch (e) {
+        console.error("Ошибка при обработке сообщения WS:", e, ev.data);
+    }
     };
 
     window.ws.onclose = (ev) => {
@@ -1077,6 +1078,11 @@ window.renderMessage = function(j) {
     }
 };
 
+window.toggleVideo = function(el) {
+    const v = el.querySelector('video');
+    if (v.paused) v.play(); else v.pause();
+};
+
 // ВЫХОД
 document.getElementById('logoutBtn').addEventListener('click', () => {
     // 1. Удаляем все данные из браузера
@@ -1390,6 +1396,19 @@ videoBtn.onclick = async () => {
 // Функция загрузки записанного медиа (использует твою логику fetch /upload)
 async function uploadAndSendMedia(blob, filename, type) {
     const tokenValue = localStorage.getItem('accesstoken');
+    const myId = localStorage.getItem('myId');
+    const localPreviewUrl = URL.createObjectURL(blob);
+    const tempId = "temp_" + Date.now();
+    if (typeof window.renderMessage === 'function') {
+        window.renderMessage({
+            sender_id: myId,
+            display_name: '',
+            text: `__${type}__`,
+            file_url: localPreviewUrl, // Используем локальную ссылку
+            temp_id: tempId
+        });
+    }
+
     const fd = new FormData();
     fd.append('file', blob, filename);
     fd.append('token', tokenValue);
@@ -1397,18 +1416,23 @@ async function uploadAndSendMedia(blob, filename, type) {
     try {
         const res = await fetch('/upload', { method: 'POST', body: fd });
         const parsed = await res.json();
-        const file_url = parsed.file_url || parsed.url;
+        const server_file_url = parsed.file_url || parsed.url;
         
-        const roomInput = document.getElementById('room');
-        const room = roomInput ? (roomInput.value || '1') : '1';
-        
-        // ВАЖНО: Мы кладем тип сообщения в поле text!
-        // Сервер это поле точно не удалит.
-        ws.send(JSON.stringify({ 
-            text: `__${type}__`, 
-            file_url: file_url, 
-            room: room 
-        }));
+        // Получаем текущую комнату
+        let room = '1';
+        if (window.ws && window.ws.url) {
+            const urlParts = window.ws.url.split('/');
+            room = decodeURIComponent(urlParts[urlParts.length - 1].split('?')[0]);
+        }
+
+        // 2. ОТПРАВКА НА СЕРВЕР
+        if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+            window.ws.send(JSON.stringify({ 
+                text: `__${type}__`, 
+                file_url: server_file_url, 
+                room: room 
+            }));
+        }
     } catch (err) {
         console.error("Ошибка загрузки медиа:", err);
     }
