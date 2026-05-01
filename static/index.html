@@ -718,9 +718,9 @@ window.connectWS = function(roomNameFromParam = null) {
             console.log("Получены данные из WS:", data);
 
             // 1. Если это сигнал звонка
-            if (data.type === 'call_signal') {
+            if (data.type === 'call_signal' || data.type === 'rtc-signal') {
                 if (typeof handleCallSignal === 'function') {
-                    handleCallSignal(data);
+                    handleCallSignal(data.signal || data);
                 } else {
                     console.error("Функция handleCallSignal не найдена!");
                 }
@@ -730,13 +730,10 @@ window.connectWS = function(roomNameFromParam = null) {
             // 2. Если это обычное сообщение
             // Проверяем, что это объект сообщения (есть текст или файл)
             if (data.sender_id || data.text || data.file_url) {
-            const myId = localStorage.getItem('myId');
-            const isMe = String(data.sender_id) === String(myId);
-
-            // Если сообщение от меня, и оно уже есть на экране (через temp_id), 
-            // то просто игнорируем или обновляем статус.
-            // Но для простоты: если сообщение от другого — играем звук и рисуем.
-            if (!isMe) {
+                // Звуковое уведомление
+                const myId = localStorage.getItem('myId');
+                const isMe = String(data.sender_id) === String(myId);
+                if (!isMe) {
                 const audioNotify = new Audio('/static/zvukTG.mp3');
                 audioNotify.volume = 0.5;
                 audioNotify.play().catch(e => console.log("Звук заблокирован"));
@@ -751,7 +748,7 @@ window.connectWS = function(roomNameFromParam = null) {
     } catch (e) {
         console.error("Ошибка при обработке сообщения WS:", e, ev.data);
     }
-    };
+};
 
     window.ws.onclose = (ev) => {
         console.log("WS закрыт. Код:", ev.code);
@@ -1397,12 +1394,14 @@ videoBtn.onclick = async () => {
 async function uploadAndSendMedia(blob, filename, type) {
     const tokenValue = localStorage.getItem('accesstoken');
     const myId = localStorage.getItem('myId');
+    const myName = localStorage.getItem('username') || localStorage.getItem('display_name') || 'Аноним';
     const localPreviewUrl = URL.createObjectURL(blob);
     const tempId = "temp_" + Date.now();
+
     if (typeof window.renderMessage === 'function') {
         window.renderMessage({
             sender_id: myId,
-            display_name: '',
+            display_name: myName,
             text: `__${type}__`,
             file_url: localPreviewUrl, // Используем локальную ссылку
             temp_id: tempId
@@ -1433,8 +1432,17 @@ async function uploadAndSendMedia(blob, filename, type) {
                 room: room 
             }));
         }
+        
+        // После успешной отправки можно "пометить" сообщение как отправленное (убрать прозрачность и т.д.)
+        const tempBubble = document.getElementById('msg-' + tempId);
+        if (tempBubble) tempBubble.style.opacity = "1";
+
     } catch (err) {
         console.error("Ошибка загрузки медиа:", err);
+        // Если ошибка — удаляем временный пузырек
+        const tempBubble = document.getElementById('msg-' + tempId);
+        if (tempBubble) tempBubble.remove();
+        alert("Не удалось отправить файл");
     }
 }
 
