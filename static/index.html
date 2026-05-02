@@ -1566,6 +1566,8 @@ window.searchUsers = async function() {
 };
 
 window.selectUser = async function(targetId, targetName) {
+    document.getElementById('currentChatName').innerText = targetName;
+    document.getElementById('messages').innerHTML = '';
     const myId = localStorage.getItem('myId');
     if (!myId) return;
     const room = Number(myId) < Number(targetId) 
@@ -1574,9 +1576,6 @@ window.selectUser = async function(targetId, targetName) {
 
     // Сохраняем в глобальную переменную для других функций
     window.currentRoomName = room; 
-
-    // 2. Обновляем интерфейс СРАЗУ
-    document.getElementById('currentChatName').innerText = targetName;
     
     await window.loadHistory(room);
 
@@ -1871,6 +1870,32 @@ function stopAllTracks() {
     document.getElementById('local-video').srcObject = null;
     document.getElementById('remote-video').srcObject = null;
 }
+
+async function forceUpdateMyName() {
+    const token = localStorage.getItem('accesstoken');
+    const myId = localStorage.getItem('myId');
+    if (!token || !myId) return;
+
+    try {
+        // Запрашиваем инфу о себе с сервера
+        const res = await fetch(`/users/search?query=${localStorage.getItem('username')}`, {
+             headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const users = await res.json();
+        // Ищем себя в результатах по ID
+        const me = users.find(u => String(u.id) === String(myId));
+        
+        if (me) {
+            const finalName = me.display_name || me.username;
+            localStorage.setItem('myDisplayName', finalName);
+            const sideBarName = document.getElementById('myDisplayNameDisplay');
+            if (sideBarName) sideBarName.innerText = finalName;
+        }
+    } catch (e) { console.log("Ошибка синхронизации имени"); }
+}
+
+// Вызываем один раз при загрузке
+forceUpdateMyName();
 </script>
 </body>
 </html>
