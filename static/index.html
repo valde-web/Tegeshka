@@ -1606,27 +1606,31 @@ if (typeof window.showChatInfo !== 'function') {
 
 // Функция показа кнопки вызова (вызывать при открытии чата)
 function updateCallButton() {
-    const btn = document.getElementById('startCallBtn');
-    const roomInput = document.getElementById('room');
-    if (!btn || !roomInput) return;
+    const callBtn = document.getElementById('startCallBtn');
+    if (!callBtn) return;
+
+    const room = window.currentRoomName || "";
     
-    const room = roomInput.value;
-    // Показываем трубку только в P2P чатах
-    btn.style.display = room.startsWith('p2p_') ? 'block' : 'none';
+    // Если комната начинается на p2p_, значит это личный чат
+    if (room.startsWith('p2p_')) {
+        callBtn.style.display = 'flex'; // Показываем кнопку
+    } else {
+        callBtn.style.display = 'none'; // Скрываем в общих чатах
+    }
 }
 
 async function initiateCall() {
     console.log("Начинаем звонок...");
     const roomInput = document.getElementById('room');
     const currentRoom = roomInput ? roomInput.value : null;
-
-    if (!window.ws || window.ws.readyState !== WebSocket.OPEN) {
-        alert("Нет соединения с сервером. Попробуйте обновить страницу.");
+    const room = window.currentRoomName || "";
+    if (!room.startsWith('p2p_')) {
+        alert("Звонки доступны только в личных чатах!");
         return;
     }
 
-    if (!currentRoom || !currentRoom.startsWith('p2p_')) {
-        alert("Звонки доступны только в личных чатах.");
+    if (!window.ws || window.ws.readyState !== WebSocket.OPEN) {
+        alert("Нет соединения с сервером. Попробуйте обновить страницу.");
         return;
     }
 
