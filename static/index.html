@@ -1577,14 +1577,7 @@ window.selectUser = async function(targetId, targetName) {
 
     // 2. Обновляем интерфейс СРАЗУ
     document.getElementById('currentChatName').innerText = targetName;
-    const roomInput = document.getElementById('room');
-    if (roomInput) roomInput.value = room;
-
-    // 3. Очищаем старые сообщения и показываем лоадер, чтобы юзер видел отклик
-    const msgDiv = document.getElementById('messages');
-    if (msgDiv) msgDiv.innerHTML = '<div style="text-align:center; color:#888; padding:20px;">Загрузка истории...</div>';
-
-    // 4. Загружаем историю через HTTP (не ждем сокета)
+    
     await window.loadHistory(room);
 
     // 5. Подключаем сокет (он просто будет слушать новые сообщения)
