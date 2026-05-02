@@ -1576,9 +1576,10 @@ window.selectUser = async function(targetId, targetName) {
     window.currentRoomName = room; 
 
     document.getElementById('currentChatName').innerText = targetName;
-    document.getElementById('messages').innerHTML = '';
-    // Обновляем кнопку звонка
-    if (typeof updateCallButton === 'function') updateCallButton();
+    window.updateCallButton();
+
+    const msgDiv = document.getElementById('messages');
+    msgDiv.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Загрузка истории...</div>';
     
     await window.loadHistory(room);
 
@@ -1605,7 +1606,7 @@ if (typeof window.showChatInfo !== 'function') {
 }
 
 // Функция показа кнопки вызова (вызывать при открытии чата)
-function updateCallButton() {
+window.updateCallButton = function() {
     const callBtn = document.getElementById('startCallBtn');
     if (!callBtn) return;
 
