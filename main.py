@@ -313,7 +313,7 @@ def register(
     user = User(
         username=username,
         hashed_password=get_password_hash(password),
-        display_name=display_name  # если None — сохранится как NULL
+        display_name=display_name.strip() if display_name else None
     )
 
     try:
@@ -335,14 +335,11 @@ def register(
         "tokentype": "bearer", 
         "userid": user.id, 
         "username": user.username,
-        "display_name": user.display_name
+        "display_name": user.display_name or user.username
     }
 
 @app.post("/login")
-def login(
-    username: str = Form(...), 
-    password: str = Form(...),
-    db: Session = Depends(get_db)): 
+def login(username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)): 
     user = db.query(User).filter(User.username == username).first()
     
     if not user or not verify_password(password, user.hashed_password):
@@ -354,7 +351,8 @@ def login(
         "accesstoken": token, 
         "tokentype": "bearer", 
         "userid": user.id, 
-        "username": user.username
+        "username": user.username,
+        "display_name": user.display_name or user.username
     }
 
 @app.get("/messages/{room}")

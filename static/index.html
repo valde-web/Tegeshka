@@ -700,30 +700,22 @@ window.connectWS = function(roomNameFromParam = null) {
 
     window.ws.onopen = () => {
         console.log("WebSocket успешно открыт для комнаты:", roomName);
-        const msgDiv = document.getElementById('messages');
-        if (msgDiv) {
-            msgDiv.innerHTML = '<div style="text-align:center; color:#888; padding:20px;">Загрузка истории...</div>';
-        }
-        if (typeof window.loadHistory === 'function') {
-            window.loadHistory(roomName); 
-        }
-        // appendMessage('Вы вошли в чат', 'system'); // Эта функция может быть недоступна
-        showChatInfo('Вы вошли в чат', 'info'); // Используем showChatInfo
         updateCallButton(); 
     };
 
     window.ws.onmessage = (ev) => {
         try {
             const data = JSON.parse(ev.data);
+            const myId = localStorage.getItem('myId');
             console.log("Получены данные из WS:", data);
+
+            if (String(data.sender_id) === String(myId)) {
+                return; 
+            }
 
             // 1. Если это сигнал звонка
             if (data.type === 'call_signal' || data.type === 'rtc-signal') {
-                if (typeof handleCallSignal === 'function') {
-                    handleCallSignal(data.signal || data);
-                } else {
-                    console.error("Функция handleCallSignal не найдена!");
-                }
+                if (typeof handleCallSignal === 'function') handleCallSignal(data);
                 return;
             }
 
@@ -731,7 +723,6 @@ window.connectWS = function(roomNameFromParam = null) {
             // Проверяем, что это объект сообщения (есть текст или файл)
             if (data.sender_id || data.text || data.file_url) {
                 // Звуковое уведомление
-                const myId = localStorage.getItem('myId');
                 const isMe = String(data.sender_id) === String(myId);
                 if (!isMe) {
                 const audioNotify = new Audio('/static/zvukTG.mp3');
@@ -892,7 +883,7 @@ async function doAuth(endpoint, isRegister = false) {
         // 1. Сохраняем данные в localStorage
         localStorage.setItem('accesstoken', token);
         localStorage.setItem('myId', userId);
-        localStorage.setItem('myDisplayName', dispName);
+        localStorage.setItem('myDisplayName', data.display_name);
 
         // 2. Обновляем интерфейс (скрываем вход, показываем чат)
         const authLayout = document.getElementById('auth-layout');
@@ -903,7 +894,7 @@ async function doAuth(endpoint, isRegister = false) {
 
         // Отображаем имя в сайдбаре
         const nameDisplay = document.getElementById('myDisplayNameDisplay');
-        if (nameDisplay) nameDisplay.innerText = dispName;
+        if (nameDisplay) nameDisplay.innerText = data.display_name;
 
         console.log('✅ Авторизация успешна, ID:', userId);
 
@@ -1237,7 +1228,7 @@ async function sendMessage() {
         // console.log('OUT WS payload', payload);
         window.ws.send(JSON.stringify(payload));
         const myId = localStorage.getItem('myId');
-        const myDisplayName = document.getElementById('currentChatName').innerText;
+        const myDisplayName = localStorage.getItem('myDisplayName') || 'Я';
         const messageToRender = {
             id: 'temp-' + Date.now(), // Временный ID для отрисовки
             sender_id: myId,
@@ -1378,7 +1369,7 @@ videoBtn.onclick = async () => {
 async function uploadAndSendMedia(blob, filename, type) {
     const tokenValue = localStorage.getItem('accesstoken');
     const myId = localStorage.getItem('myId');
-    const myName = localStorage.getItem('username') || localStorage.getItem('display_name') || 'Аноним';
+    const myName = localStorage.getItem('myDisplayName') || 'Я';
     const localPreviewUrl = URL.createObjectURL(blob);
     const tempId = "temp_" + Date.now();
 
