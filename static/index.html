@@ -439,10 +439,10 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
             <!-- Скрытый инпут для комнаты (нужен для твоего JS) -->
             <input type="hidden" id="room" value="1">
 
-            <div id="chatHeader" style="padding: 5px 20px; background: #17212b; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
-                <span id="currentChatName" style="padding: 15px 20px;">Выберите чат слева</span>
+            <div id="chatHeader" style="padding: 0px 20px; background: #17212b; flex-shrink: 0; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
+                <span id="currentChatName" style="padding: 15px 0px; font-weight: bold;">Выберите чат слева</span>
                 <!-- Кнопка звонка -->
-                <button id="startCallBtn" onclick="initiateCall()" style="background: none; border: none; cursor: pointer; display: none;">
+                <button id="startCallBtn" onclick="initiateCall()" style="background: none; border: none; border-radius: 100px; cursor: pointer; display: none; padding: 10px 10px !important;">
                 <img src="https://s.fotora.ru/2459a44d2c92abad.png" width="20" style="filter: brightness(0) invert(1);"></button>
             </div>
 
@@ -666,14 +666,9 @@ window.connectWS = function(roomNameFromParam = null) {
         return;
     }
 
-    let roomName = roomNameFromParam;
-    if (!roomName) {
-        const roomInput = document.getElementById('room');
-        roomName = roomInput ? (roomInput.value || '1') : '1';
-    }
+    let roomName = roomNameFromParam || (document.getElementById('room') ? document.getElementById('room').value : '1');
     const proto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
-    const base = proto + '//' + location.host;
-    const wsUrl = base + '/ws/' + encodeURIComponent(roomName) + '?token=' + encodeURIComponent(tokenValue);
+    const wsUrl = `${proto}//${location.host}/ws/${encodeURIComponent(roomName)}?token=${encodeURIComponent(tokenValue)}`;
 
     if (window.ws) {
         // Если мы уже подключены именно к ЭТОЙ комнате — ничего не делаем
@@ -684,8 +679,10 @@ window.connectWS = function(roomNameFromParam = null) {
         } 
         // Если мы подключены к ДРУГОЙ комнате — закрываем старую
         console.log("Смена чата: закрываем старое соединение...");
-        window.ws.close(1000, "Переключение комнаты"); 
-        window.ws = null; // Обнуляем после закрытия
+        window.ws.onclose = null; 
+        window.ws.onerror = null;
+        window.ws.close();
+        window.ws = null;
         stopAllTracks(); 
     }
 
@@ -700,7 +697,7 @@ window.connectWS = function(roomNameFromParam = null) {
 
     window.ws.onopen = () => {
         console.log("WebSocket успешно открыт для комнаты:", roomName);
-        updateCallButton(); 
+        if (typeof updateCallButton === 'function') updateCallButton(); 
     };
 
     window.ws.onmessage = (ev) => {
@@ -1133,27 +1130,31 @@ if (logoutBtn) {
 
 async function sendMessage() { 
     const tokenValue = localStorage.getItem('accesstoken');
-    
-    if (!window.ws || window.ws.readyState !== WebSocket.OPEN) {
-        showChatInfo('Сначала подключитесь к чату!', 'error');
-        if (window.ws && window.ws.readyState === WebSocket.CONNECTING) {
-            showChatInfo('Соединение устанавливается, подождите...', 'info');
-        }
-        return;
-    }
-
-    // Определяем элементы (убедись, что ID совпадают с твоим HTML)
     const textEl = document.getElementById('text');
     const fileEl = document.getElementById('file');
     const fileNameEl = document.getElementById('file-name');
     const sendBtn = document.getElementById('send');
+    
+    if (!window.ws || window.ws.readyState !== WebSocket.OPEN) {
+        showChatInfo('Сначала подключитесь к чату!', 'error');
+        if (window.ws && window.ws.readyState === WebSocket.CONNECTING) {
+            console.log("Соединение устанавливается, ожидаем...");
+            let attempts = 0; // Используем let!
+            while (window.ws && window.ws.readyState === WebSocket.CONNECTING && attempts < 20) {
+                await new Promise(res => setTimeout(res, 100)); // Ждем 100мс
+                attempts++;
+            }
+        }
+    }
 
-    let currentRoomName = '1'; // По умолчанию для общей комнаты
-    if (ws && ws.url) {
-        // Парсим room_id из URL WebSocket'а
+    if (!window.ws || window.ws.readyState !== WebSocket.OPEN) {
+        showChatInfo('Соединение еще не установлено. Попробуйте через секунду.', 'error');
+        return;
+    }
+
+        let currentRoomName = window.currentRoomName || '1';    if (ws && ws.url) {
+
         const urlParts = ws.url.split('/');
-        // URL вида wss://host/ws/p2p_X_Y?token=...
-        // Room_id будет частью urlParts[urlParts.length - 1] до знака '?'
         currentRoomName = urlParts[urlParts.length - 1].split('?')[0];
         currentRoomName = decodeURIComponent(currentRoomName); // Декодируем, если есть спецсимволы
     } else {
