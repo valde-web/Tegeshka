@@ -666,11 +666,7 @@ window.connectWS = function(roomNameFromParam = null) {
         return;
     }
 
-    let roomName = roomNameFromParam;
-    if (!roomName) {
-        const roomInput = document.getElementById('room');
-        roomName = roomInput ? (roomInput.value || '1') : '1';
-    }
+    let roomName = roomNameFromParam || (document.getElementById('room') ? document.getElementById('room').value : '1');
     const proto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
     const wsUrl = `${proto}//${location.host}/ws/${encodeURIComponent(roomName)}?token=${encodeURIComponent(tokenValue)}`;
 
@@ -1580,6 +1576,9 @@ window.selectUser = async function(targetId, targetName) {
     // Сохраняем в глобальную переменную для других функций
     window.currentRoomName = room; 
 
+    const roomInput = document.getElementById('room');
+    if (roomInput) roomInput.value = room; 
+
     document.getElementById('currentChatName').innerText = targetName;
     window.updateCallButton();
 
@@ -1651,7 +1650,7 @@ async function initiateCall() {
         window.ws.send(JSON.stringify({
             type: 'call_signal',
             subtype: 'offer_request',
-            room: currentRoom
+            room: window.currentRoomName || '1'
         }));
         console.log("Сигнал offer_request отправлен в комнату:", currentRoom);
     } catch (err) {
