@@ -666,7 +666,11 @@ window.connectWS = function(roomNameFromParam = null) {
         return;
     }
 
-    let roomName = roomNameFromParam || (document.getElementById('room') ? document.getElementById('room').value : '1');
+    let roomName = roomNameFromParam;
+    if (!roomName) {
+        const roomInput = document.getElementById('room');
+        roomName = roomInput ? (roomInput.value || '1') : '1';
+    }
     const proto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
     const wsUrl = `${proto}//${location.host}/ws/${encodeURIComponent(roomName)}?token=${encodeURIComponent(tokenValue)}`;
 
