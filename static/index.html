@@ -42,13 +42,14 @@
             padding: 12px;
             margin: 8px 0;
             border-radius: var(--border-radius);
-            border: 1px solid #444;
-            background: #1a1a1a;
+            border: 1px solid #9c9c9c;
+            background-color: #1a1a1a;
             color: var(--text-color);
             box-sizing: border-box;
             transition: border 0.3s;
             font-size: 1.0em;
             caret-color: var(--text-color);
+            transition: background-color 5000s ease-in-out 0s;
         }
 
         textarea:focus, input:focus { 
@@ -66,12 +67,52 @@
 
         h3 { margin-top: 0; color: var(--text-color); font-weight: 500; }
 
-        input:-webkit-autofill {
-        -webkit-box-shadow: 0 0 0px 1000px #1a1a1a inset !important;
-        box-shadow: 0 0 0px 1000px #1a1a1a inset !important;
-        -webkit-text-fill-color: var(--text-color) !important;
-        font-size: 1em;
-        }
+input:-webkit-autofill, input:-webkit-autofill:hover,  input:-webkit-autofill:focus, 
+textarea:-webkit-autofill, textarea:-webkit-autofill:hover, textarea:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0px 1000px #1a1a1a inset !important;
+    box-shadow: 0 0 0px 1000px #1a1a1a inset !important;
+    /* Цвет текста */
+    -webkit-text-fill-color: var(--text-color) !important;
+    /* Шрифты (наследуем из основного стиля) */
+    font-family: inherit !important;
+    font-size: inherit !important;
+    /* Цвет каретки (мигающей палочки) */
+    caret-color: var(--text-color);
+    /* Скругление углов (если у тебя инпуты закругленные) */
+    border-radius: var(--border-radius);
+    border: 1px solid #9c9c9c;
+}
+
+input:-internal-autofill-selected {
+    appearance: menulist-button !important;
+    background-image: none !important;
+    background-color: #1a1a1a !important;
+    color: var(--text-color) !important;
+}
+
+input:-webkit-autofill:focus { border: 1px solid #5288c1 !important; }
+
+#userSearchInput:-webkit-autofill, #userSearchInput:-webkit-autofill:hover, #userSearchInput:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0px 1000px #242f3d inset !important;
+    box-shadow: 0 0 0px 1000px #242f3d inset !important;
+    /* Цвет текста */
+    -webkit-text-fill-color: var(--text-color) !important;
+    /* Шрифты (наследуем из основного стиля) */
+    font-family: inherit !important;
+    font-size: inherit !important;
+    /* Цвет каретки (мигающей палочки) */
+    caret-color: var(--text-color);
+    /* Скругление углов (если у тебя инпуты закругленные) */
+    border-radius: 100px;
+    border: none;
+}
+
+#userSearchInput:-internal-autofill-selected {
+    appearance: menulist-button !important;
+    background-image: none !important;
+    background-color: #242f3d !important;
+    color: var(--text-color) !important;
+}
 
         button {
             font-family:'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
@@ -91,30 +132,7 @@
             min-height: 1.2em;
         }
 
-        .file-link {
-            display: block;
-            margin-top: 5px;
-            color: #460046;
-            text-decoration: none;
-            font-size: 0.9em;
-        }
-
-        .controls-row { display: flex; gap: 10px; align-items: center; justify-content: flex-end; }
-
-        #send {
-        background: none;
-        padding: 10px 10px !important;
-        border-radius: 100px;
-
-        }
-
-        #attachBtn {
-        background: none;
-        padding: 10px 10px !important;
-        border-radius: 100px;
-        }
-
-        #videoBtn, #voiceBtn {
+        #videoBtn, #voiceBtn, #attachBtn, #send {
         background: none;
         padding: 10px 10px !important;
         border-radius: 100px;
@@ -214,7 +232,7 @@
 .messenger-wrapper { display: flex; height: 100vh; width: 100vw; }
 
 /* Сайдбар */
-.sidebar { width: 350px; background: #17212b; border-right: 1px solid #111; display: flex; flex-direction: column; }
+.sidebar { background: #17212b; border-right: 1px solid #111; display: flex; flex-direction: column; }
 .sidebar-header { padding: 15px; display: flex; justify-content: space-between; align-items: center; background: #17212b; }
 .sidebar-search { padding: 10px; }
 .sidebar-search input { width: 100%; background: #242f3d; border: 1px solid #111; padding: 10px; border-radius: 8px; color: white; box-sizing: border-box; }
@@ -264,6 +282,7 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
     border-radius: 12px;
     position: relative;
     word-wrap: break-word;
+    word-break: break-all;
     box-shadow: 0 2px 5px rgba(0,0,0,0.3);
 }
 
@@ -411,11 +430,16 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
         }
 
 @media (max-width: 600px) {
-
-#chatHeader { padding: 0px 10px 0px 5px !important; }
-#startCallBtn { padding: 10px 15px !important; }
+.container { max-width: 300px; }
+html, body, #main-layout, #chat-card { height: 100dvh !important; }
 .sidebar { width: 100% !important; display: flex !important; }
 #chat-card { display: none !important; }
+/* #chat-card { padding-bottom: env(safe-area-inset-bottom, 10px); } */
+#chatHeader { padding: 0px 10px 0px 5px !important; }
+#messages { padding: 0px 10px; }
+.cont { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 15px) !important; }
+.image-mobile { max-width: 248px; max-height: 248px; }
+#startCallBtn { padding: 10px 15px !important; }
 body.mobile-chat-active .sidebar { display: none !important; }
 body.mobile-chat-active #chat-card { display: flex !important; width: 100% !important; }
 #mobileBackBtn { display: block !important; }
@@ -451,7 +475,7 @@ body.mobile-chat-active #chat-card { display: flex !important; width: 100% !impo
     <div style="display: flex; overflow: hidden; height: 100%;">
         
         <!-- ЛЕВАЯ ПАНЕЛЬ (САЙДБАР) -->
-        <div class="sidebar" style="width: 300px; background: none; display: flex; flex-direction: column;">
+        <div class="sidebar" style="width: 400px; background: none; display: flex; flex-direction: column;">
             <div style="padding: 15px; display: flex; justify-content: space-between; align-items: center;">
                 <strong id="myDisplayNameDisplay">Профиль</strong>
                 <button id="logoutBtn" style="background:none; border:none; color:#e53935; cursor:pointer;">Выйти</button>
@@ -463,7 +487,7 @@ body.mobile-chat-active #chat-card { display: flex !important; width: 100% !impo
                 <div id="searchResults"></div>
             </div>
 
-            <div id="chatsList" style="flex-grow: 1; overflow-y: auto;">
+            <div id="chatsList" style="flex-grow: 1; overflow-y: auto; border: none;">
                 <!-- Список чатов -->
             </div>
         </div>
@@ -500,7 +524,7 @@ body.mobile-chat-active #chat-card { display: flex !important; width: 100% !impo
                         </div>
                     </div>
                 </div>
-                <span id="file-name" style="font-size: 1.0em; color: var(--text-color);"></span>
+                <span id="file-name" style="font-size: 1.0em; color: var(--text-color); word-break: break-all;"></span>
                 <!-- <div id="chat-info" style="margin-top:5px;"></div> -->
             </div>
         </div>
@@ -996,7 +1020,7 @@ window.loadMyChats = async function() {
         chats.forEach(user => {
             const div = document.createElement('div');
             div.className = 'chat-item';
-            div.style = "padding:12px; border-bottom:1px solid #111; cursor:pointer; transition: 0.2s;";
+            div.style = "padding:12px; border-bottom: none; cursor:pointer; transition: 0.2s;";
             
             // Навешиваем событие клика — то же самое, что и в поиске
             div.onclick = () => window.selectUser(user.id, user.display_name);
@@ -1037,14 +1061,22 @@ window.renderMessage = function(j) {
             const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(urlLower);
 
             if (isVoice) {
+                const durationId = 'dur-' + Math.random().toString(36).substr(2, 9);
                 messageText = '';
                 fileHtml = `
                 <div class="voice-player">
                     <button class="play-btn" type="button" onclick="toggleAudio(this)">▶</button>
                     <audio src="${fileUrl}" preload="metadata"></audio>
                     <div class="voice-progress"><div class="voice-progress-fill"></div></div>
-                    <small class="duration" style="color:#aaa; font-size:10px; margin-left:5px;">0:00</small>
+                    <small class="duration" id="${durationId}" style="color:#aaa; font-size:10px; margin-left:5px;">0:00</small>
                 </div>`;
+                const tempAudio = new Audio(data.file_url);
+                tempAudio.addEventListener('loadedmetadata', () => {
+                    const durElement = document.getElementById(durationId);
+                    if (durElement && tempAudio.duration !== Infinity) {
+                        durElement.innerText = window.formatTime(tempAudio.duration);
+                    }
+                });
             } else if (isVideo) {
                 messageText = '';
                 fileHtml = `
@@ -1055,7 +1087,7 @@ window.renderMessage = function(j) {
                     </svg>
                 </div>`;
             } else if (isImage) {
-                fileHtml = `<img src="${fileUrl}" style="max-width: 300px; max-height: 300px; width: auto; height: auto; object-fit: contain; border-radius:8px; margin-top:8px; cursor:pointer;" onclick="window.open(this.src)">`;
+                fileHtml = `<img src="${fileUrl}" class="image-mobile" style="max-width: 300px; max-height: 300px; width: auto; height: auto; object-fit: contain; border-radius:8px; margin-top:8px; cursor:pointer;" onclick="window.open(this.src)">`;
             } else {
                 let fileName = 'Файл';
                 try {
@@ -1109,7 +1141,6 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
     document.getElementById('main-layout').style.display = 'none';
 
     // 4. Показываем блок авторизации
-    // ВАЖНО: Убедись, что у твоего блока с логином/регистрацией id="auth-card"
     const authCard = document.getElementById('auth-layout');
     if (authCard) {
         authCard.style.display = 'block';
@@ -1586,7 +1617,7 @@ window.searchUsers = async function() {
         users.forEach(u => {
             const div = document.createElement('div');
             div.className = 'chat-item';
-            div.style = "padding:12px; border-bottom:1px solid #111; cursor:pointer;";
+            div.style = "padding:12px; cursor:pointer;";
             div.innerHTML = `<strong>${u.display_name || u.username}</strong><br><small style="color:#888;">@${u.username}</small>`;
             
             div.onclick = () => {
@@ -1955,6 +1986,17 @@ async function forceUpdateMyName() {
         }
     } catch (e) { console.log("Ошибка синхронизации имени"); }
 }
+
+window.formatTime = function(seconds) {
+    if (isNaN(seconds) || seconds < 0) return "0:00";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    if (h > 0) {
+        return h + ":" + (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s);
+    }
+    return m + ":" + (s < 10 ? "0" + s : s);
+};
 
 // Вызываем один раз при загрузке
 forceUpdateMyName();
