@@ -143,8 +143,6 @@ input:-webkit-autofill:focus { border: 1px solid #5288c1 !important; }
         top: 2px;
         }
 
-        .row { display:flex; align-items:flex-start; }
-
         .file-input-wrapper { flex-grow: 1; }
 
         ::placeholder {
@@ -430,27 +428,26 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
         }
 
 @media (max-width: 600px) {
-.container { max-width: 300px; }
+.container { max-width: 300px !important; }
 html, body, #main-layout, #chat-card { height: 100dvh !important; }
 .sidebar { width: 100% !important; display: flex !important; }
 #chat-card { display: none !important; }
-/* #chat-card { padding-bottom: env(safe-area-inset-bottom, 10px); } */
 #chatHeader { padding: 0px 10px 0px 5px !important; }
-#messages { padding: 0px 10px; }
-.cont { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 15px) !important; }
-.image-mobile { max-width: 248px; max-height: 248px; }
+#messages { padding: 0px 15px !important; }
+.cont { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 15px) !important; padding: 0px 15px 15px 15px; }
+.image-mobile { max-width: 248px !important; max-height: 248px !important; }
 #startCallBtn { padding: 10px 15px !important; }
 body.mobile-chat-active .sidebar { display: none !important; }
 body.mobile-chat-active #chat-card { display: flex !important; width: 100% !important; }
 #mobileBackBtn { display: block !important; }
-.call-controls { gap: 12px; }
-#call-overlay { padding: 0px 20px 30px 20px; }
-.call-btn { width: 50px; height: 50px; }
-.video-container { height: 70vh; }
-#local-video { width: 35%; height: 35%; }
-*::-webkit-scrollbar { display: none; }
-* { scrollbar-width: none; }
-* { -ms-overflow-style: none; }
+.call-controls { gap: 12px !important; }
+#call-overlay { padding: 0px 20px 30px 20px !important; }
+.call-btn { width: 50px !important; height: 50px !important; }
+.video-container { height: 70vh !important; }
+#local-video { width: 35% !important; height: 35% !important; }
+*::-webkit-scrollbar { display: none !important; }
+* { scrollbar-width: none !important; }
+* { -ms-overflow-style: none !important; }
 }
 </style>
 </head>
@@ -511,8 +508,8 @@ body.mobile-chat-active #chat-card { display: flex !important; width: 100% !impo
             <div id="messages" style="flex: 1; height: 300px; margin-bottom: 5px; padding: 0px 10px 0px 20px; gap: 10px; overflow-y: auto; background-color: none; display: flex; flex-direction: column; font-size: 1.0em;"></div>
             
             <!-- БЛОК ВВОДА -->
-            <div class="cont" style="padding: 0px 15px 20px 20px; background: none; flex-shrink: 0; margin-top: auto;">
-                <div class="row" style="display:flex; width:100%; gap: 10px; flex-shrink: 0;">
+            <div class="cont" style="padding: 0px 20px 20px 20px; background: none; flex-shrink: 0; margin-top: auto;">
+                <div class="row" style="display:flex; width:100%; gap: 10px; align-items: flex-end; flex-shrink: 0;">
                     <textarea id="text" rows="1" placeholder="Напишите сообщение..." style="line-height: 1.4; max-height: 400px; min-height: 42px; overflow-y: hidden; font-family: sans-serif; padding: 10px 12px;" oninput="autoResize(this)"></textarea>
                     <div class="controls-row2" style="display: flex;">
                         <input type="file" id="file" style="display:none">
@@ -1078,6 +1075,7 @@ window.renderMessage = function(j) {
                     }
                 });
             } else if (isVideo) {
+                const videoDurationId = 'vid-dur-' + Math.random().toString(36).substr(2, 9);
                 messageText = '';
                 fileHtml = `
                 <div class="video-circle-container" onclick="toggleVideo(this)">
@@ -1085,7 +1083,18 @@ window.renderMessage = function(j) {
                     <svg class="video-progress-svg">
                         <circle class="video-progress-circle" cx="105" cy="105" r="100"></circle>
                     </svg>
+                    <small id="${videoDurationId}" style="position: absolute; bottom: 10px; right: 20px; color: white; background: rgba(0,0,0,0.5); padding: 2px 5px; border-radius: 5px; font-size: 10px;">0:00</small>
                 </div>`;
+                const tempVideo = document.createElement('video');
+                tempVideo.src = fileUrl;
+                tempVideo.preload = 'metadata';
+    
+                tempVideo.addEventListener('loadedmetadata', () => {
+                    const durElement = document.getElementById(videoDurationId);
+                    if (durElement && tempVideo.duration !== Infinity) {
+                        durElement.innerText = window.formatTime(tempVideo.duration);
+                    }
+                });
             } else if (isImage) {
                 fileHtml = `<img src="${fileUrl}" class="image-mobile" style="max-width: 300px; max-height: 300px; width: auto; height: auto; object-fit: contain; border-radius:8px; margin-top:8px; cursor:pointer;" onclick="window.open(this.src)">`;
             } else {
