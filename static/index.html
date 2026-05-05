@@ -1070,7 +1070,7 @@ window.renderMessage = function(j) {
                     <div class="voice-progress"><div class="voice-progress-fill"></div></div>
                     <small class="duration" id="${durationId}" style="color:#aaa; font-size:10px; margin-left:5px;">0:00</small>
                 </div>`;
-                const tempAudio = new Audio(data.file_url);
+                const tempAudio = new Audio(fileUrl);
                 tempAudio.addEventListener('loadedmetadata', () => {
                     const durElement = document.getElementById(durationId);
                     if (durElement && tempAudio.duration !== Infinity) {
