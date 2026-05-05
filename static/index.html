@@ -342,8 +342,7 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
     width: 25%; height: 25%;
     border-radius: 10px; 
     object-fit: contain; 
-    border: 2px solid #4386c9;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    background-color: none;
     transform: scaleX(-1);
 }
 
@@ -365,12 +364,15 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
 }
 
 .btn-mute { background: #1a1a1a; }
+.btn-sound { background: #1a1a1a; }
 .btn-camera { background: #1a1a1a; }
 .btn-screen { background: #1a1a1a; }
 .btn-hangup { background: #e53935; } /* Красная кнопка сброса */
 
 .call-btn:hover { transform: scale(1.1); opacity: 0.8; }
 .call-btn.active { background: #6b0705; }
+
+#call-status { margin: 0 0 20px 0; }
 
 #incoming-call-modal {
     position: fixed;
@@ -408,8 +410,34 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
           height: 12px; /* Высота горизонтальной полосы прокрутки */
         }
 
-        @media (max-width: 800px) {
-        .video-container {height: 70vh;}}
+        @media (max-width: 600px) {
+    .sidebar {
+        width: 100% !important;
+        display: flex !important;
+    }
+    #chat-card {
+        display: none !important; /* Скрываем чат */
+    }
+
+    /* Когда чат открыт (добавляем класс к body) */
+    body.mobile-chat-active .sidebar {
+        display: none !important; /* Скрываем сайдбар */
+    }
+    body.mobile-chat-active #chat-card {
+        display: flex !important; /* Показываем чат на весь экран */
+        width: 100% !important;
+    }
+
+    /* Показываем кнопку "Назад" только на мобилке */
+    #mobileBackBtn {
+        display: block !important;
+    }
+        .call-controls { gap: 12px; }
+        #call-overlay { padding: 0px 20px 30px 20px; }
+        .call-btn { width: 50px; height: 50px; }
+        .video-container { height: 70vh; }
+        #local-video { width: 35%; height: 35%; }
+        }
     </style>
 </head>
 <body>
@@ -436,7 +464,7 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
         <div class="sidebar" style="width: 300px; background: #17212b; border-right: 1px solid #111; display: flex; flex-direction: column;">
             <div style="padding: 15px; border-bottom: 1px solid #111; display: flex; justify-content: space-between; align-items: center;">
                 <strong id="myDisplayNameDisplay">Профиль</strong>
-                <button id="logoutBtn" style="background:none; border:none; color:#888; cursor:pointer;">Выйти из аккаунта</button>
+                <button id="logoutBtn" style="background:none; border:none; color:#e53935; cursor:pointer;">Выйти</button>
             </div>
             
             <!-- Поиск (вместо "Войти в чат") -->
@@ -457,6 +485,7 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
             <input type="hidden" id="room" value="1">
 
             <div id="chatHeader" style="padding: 0px 20px; background: #17212b; flex-shrink: 0; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
+                <button id="mobileBackBtn" onclick="closeChat()" style="display: none; background: none; border: none; color: white; font-size: 24px; cursor: pointer; margin-right: 15px; padding: 10px 0;">←</button>
                 <span id="currentChatName" style="padding: 15px 0px; font-weight: bold;">Выберите чат слева</span>
                 <!-- Кнопка звонка -->
                 <button id="startCallBtn" onclick="initiateCall()" style="background: none; border: none; border-radius: 100px; cursor: pointer; display: none; padding: 10px 10px !important;">
@@ -499,6 +528,7 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
     </div>
     <div class="call-controls">
         <button class="call-btn btn-mute" onclick="toggleMute()" title="Микрофон"><img src="https://s.fotora.ru/6a9ab2c6a89bdc25.png" width="20"></button>
+        <button class="call-btn btn-sound" onclick="toggleSound()" title="Звук"><img src="https://s.fotora.ru/95da268f12112a98.png" width="20"></button>
         <button class="call-btn btn-camera" onclick="toggleCamera()" title="Камера"><img src="https://s.fotora.ru/81a305cbb4215591.png" width="20"></button>
         <button class="call-btn btn-screen" onclick="toggleScreenShare()" title="Демонстрация экрана"><img src="https://s.fotora.ru/e03f438754ed13b6.png" width="20"></button>
         <button class="call-btn btn-hangup" onclick="hangup()" title="Завершить звонок"><img src="https://s.fotora.ru/7caf2299f543c8dd.png" width="20"></button>
@@ -1597,6 +1627,9 @@ window.selectUser = async function(targetId, targetName) {
     if (roomInput) roomInput.value = room; 
 
     document.getElementById('currentChatName').innerText = targetName;
+    if (window.innerWidth <= 600) {
+        document.body.classList.add('mobile-chat-active');
+    }
     window.updateCallButton();
 
     const msgDiv = document.getElementById('messages');
@@ -1607,6 +1640,18 @@ window.selectUser = async function(targetId, targetName) {
     // 5. Подключаем сокет (он просто будет слушать новые сообщения)
     if (typeof window.connectWS === 'function') {
         window.connectWS(room);
+    }
+};
+
+window.closeChat = function() {
+    document.body.classList.remove('mobile-chat-active');
+    
+    // Опционально: очищаем текущую комнату
+    window.currentRoomName = null;
+
+    if (window.ws) {
+        window.ws.close();
+        window.ws = null;
     }
 };
 
