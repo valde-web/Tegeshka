@@ -27,7 +27,7 @@
             background-color: var(--bg-color);
             color: var(--text-color);
             height: 100%;
-            padding: 0;
+            padding: 0; margin: 0;
             overflow: hidden;
         }
 
@@ -120,7 +120,7 @@
         border-radius: 100px;
         }
 
-        #attachBtn img, #send img, #videoBtn img, #voiceBtn img {
+        #attachBtn img, #send img, #videoBtn img, #voiceBtn img, #mobileBackBtn img {
         position: relative;
         top: 2px;
         }
@@ -410,35 +410,25 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
           height: 12px; /* Высота горизонтальной полосы прокрутки */
         }
 
-        @media (max-width: 600px) {
-    .sidebar {
-        width: 100% !important;
-        display: flex !important;
-    }
-    #chat-card {
-        display: none !important; /* Скрываем чат */
-    }
+@media (max-width: 600px) {
 
-    /* Когда чат открыт (добавляем класс к body) */
-    body.mobile-chat-active .sidebar {
-        display: none !important; /* Скрываем сайдбар */
-    }
-    body.mobile-chat-active #chat-card {
-        display: flex !important; /* Показываем чат на весь экран */
-        width: 100% !important;
-    }
-
-    /* Показываем кнопку "Назад" только на мобилке */
-    #mobileBackBtn {
-        display: block !important;
-    }
-        .call-controls { gap: 12px; }
-        #call-overlay { padding: 0px 20px 30px 20px; }
-        .call-btn { width: 50px; height: 50px; }
-        .video-container { height: 70vh; }
-        #local-video { width: 35%; height: 35%; }
-        }
-    </style>
+#chatHeader { padding: 0px 10px 0px 5px !important; }
+#startCallBtn { padding: 10px 15px !important; }
+.sidebar { width: 100% !important; display: flex !important; }
+#chat-card { display: none !important; }
+body.mobile-chat-active .sidebar { display: none !important; }
+body.mobile-chat-active #chat-card { display: flex !important; width: 100% !important; }
+#mobileBackBtn { display: block !important; }
+.call-controls { gap: 12px; }
+#call-overlay { padding: 0px 20px 30px 20px; }
+.call-btn { width: 50px; height: 50px; }
+.video-container { height: 70vh; }
+#local-video { width: 35%; height: 35%; }
+*::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; }
+* { -ms-overflow-style: none; }
+}
+</style>
 </head>
 <body>
     <!-- Контейнер Авторизации (Твои ID сохранены) -->
@@ -461,15 +451,15 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
     <div style="display: flex; overflow: hidden; height: 100%;">
         
         <!-- ЛЕВАЯ ПАНЕЛЬ (САЙДБАР) -->
-        <div class="sidebar" style="width: 300px; background: #17212b; border-right: 1px solid #111; display: flex; flex-direction: column;">
-            <div style="padding: 15px; border-bottom: 1px solid #111; display: flex; justify-content: space-between; align-items: center;">
+        <div class="sidebar" style="width: 300px; background: none; display: flex; flex-direction: column;">
+            <div style="padding: 15px; display: flex; justify-content: space-between; align-items: center;">
                 <strong id="myDisplayNameDisplay">Профиль</strong>
                 <button id="logoutBtn" style="background:none; border:none; color:#e53935; cursor:pointer;">Выйти</button>
             </div>
             
             <!-- Поиск (вместо "Войти в чат") -->
             <div style="padding: 10px;">
-                <input id="userSearchInput" placeholder="Поиск людей..." oninput="searchUsers()" style="width:100%; background:#242f3d; border:none; padding:10px; border-radius:5px; color:white;">
+                <input id="userSearchInput" placeholder="Поиск чатов" oninput="searchUsers()" style="width:100%; background:#242f3d; border:none; padding:10px; border-radius:5px; color:white;">
                 <div id="searchResults"></div>
             </div>
 
@@ -485,7 +475,8 @@ textarea { flex-grow: 1; background: transparent; color: var(--text-color); care
             <input type="hidden" id="room" value="1">
 
             <div id="chatHeader" style="padding: 0px 20px; background: #17212b; flex-shrink: 0; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
-                <button id="mobileBackBtn" onclick="closeChat()" style="display: none; background: none; border: none; color: white; font-size: 24px; cursor: pointer; margin-right: 15px; padding: 10px 0;">←</button>
+                <button id="mobileBackBtn" onclick="closeChat()" style="display: none; background: none; border: none; color: white; font-size: 24px; cursor: pointer; border-radius: 100px; padding: 10px 10px !important;">
+                <img src="https://s.fotora.ru/2f08526758d917fe.png" width="20"></button>
                 <span id="currentChatName" style="padding: 15px 0px; font-weight: bold;">Выберите чат слева</span>
                 <!-- Кнопка звонка -->
                 <button id="startCallBtn" onclick="initiateCall()" style="background: none; border: none; border-radius: 100px; cursor: pointer; display: none; padding: 10px 10px !important;">
