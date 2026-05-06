@@ -91,7 +91,7 @@ input:-internal-autofill-selected {
 }
 
 input:-webkit-autofill:focus { border: 1px solid #5288c1 !important; }
-
+ 
 #userSearchInput:-webkit-autofill, #userSearchInput:-webkit-autofill:hover, #userSearchInput:-webkit-autofill:focus {
     -webkit-box-shadow: 0 0 0px 1000px #242f3d inset !important;
     box-shadow: 0 0 0px 1000px #242f3d inset !important;
@@ -127,10 +127,7 @@ input:-webkit-autofill:focus { border: 1px solid #5288c1 !important; }
             transition: background 0.3s;
         }
 
-        #info {
-            font-size: 1.0em;
-            min-height: 1.2em;
-        }
+        #info { font-size: 1.0em; min-height: 1.2em; }
 
         #videoBtn, #voiceBtn, #attachBtn, #send {
         background: none;
@@ -248,10 +245,10 @@ input:-webkit-autofill:focus { border: 1px solid #5288c1 !important; }
 .chat-header { padding: 10px 20px; background: #17212b; border-bottom: 1px solid #111; display: flex; align-items: center; }
 .chat-info { display: flex; align-items: center; gap: 12px; }
 
-/* Поле ввода */
-.input-area { padding: 10px 20px 20px 20px; color: var(--text-color); caret-color: var(--text-color); border-radius: var(--border-radius); border: 1px solid #444; background: #1a1a1a; box-sizing: border-box; transition: border 0.3s; font-size: 1.0em; }
+/* Поле ввода
+.input-area { padding: 10px 20px 20px 20px; color: var(--text-color); caret-color: var(--text-color); border-radius: var(--border-radius); border: 1px solid #444; background: #1a1a1a; box-sizing: border-box; transition: border 0.3s; font-size: 1.0em; }*/ 
 textarea { flex-grow: 1; background: transparent; color: var(--text-color); caret-color: var(--text-color); resize: none; font-size: 1em; outline: none; max-height: 200px; padding: 10px 0; border-radius: var(--border-radius); border: 1px solid #444; background: #1a1a1a; box-sizing: border-box; transition: border 0.3s; font-size: 1.0em; }
-#text { flex-grow: 1; width: 100%; margin: 0; border: none; color: var(--text-color); caret-color: var(--text-color); resize: none; outline: none; border-radius: var(--border-radius); background: #1a1a1a; box-sizing: border-box; font-size: 1.0em; }
+#text { flex-grow: 1; width: 100%; margin: 0; border: none; color: var(--text-color); caret-color: var(--text-color); resize: none; outline: none; border-radius: 100px; background: #1a1a1a; box-sizing: border-box; font-size: 1.0em; }
 .button-grid { display: grid; grid-template-columns: repeat(4, 40px); gap: 5px; }
 .button-grid button { background: none; border: none; cursor: pointer; padding: 8px; border-radius: 50%; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
 .button-grid button:hover { background: #242f3d; }
@@ -473,14 +470,14 @@ body.mobile-chat-active #chat-card { display: flex !important; width: 100% !impo
         
         <!-- ЛЕВАЯ ПАНЕЛЬ (САЙДБАР) -->
         <div class="sidebar" style="width: 400px; background: none; display: flex; flex-direction: column;">
-            <div style="padding: 15px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="padding: 10px; display: flex; justify-content: space-between; align-items: center;">
                 <strong id="myDisplayNameDisplay">Профиль</strong>
-                <button id="logoutBtn" style="background:none; border:none; color:#e53935; cursor:pointer;">Выйти</button>
+                <button id="logoutBtn" style="background:none; border:none; color:#e53935; cursor:pointer; padding: 10px 0;">Выйти</button>
             </div>
             
             <!-- Поиск (вместо "Войти в чат") -->
             <div style="padding: 10px;">
-                <input id="userSearchInput" placeholder="Поиск чатов" oninput="searchUsers()" style="width:100%; background:#242f3d; border:none; padding:10px; border-radius:5px; color:white;">
+                <input id="userSearchInput" placeholder="🔍︎   Поиск чатов" oninput="searchUsers()" style="width:100%; background:#242f3d; border:none; padding: 10px 15px; border-radius: 100px; color:white;">
                 <div id="searchResults"></div>
             </div>
 
